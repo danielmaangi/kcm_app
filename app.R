@@ -179,13 +179,13 @@ server <- function(input, output, session) {
         pivot_wider(names_from = "data",
                     values_from = "value") %>%
         mutate(
-          `% Achieved` = round(as.numeric(Result)*100/ as.numeric(Target),0),
+          Percent = round(as.numeric(Result)*100/ as.numeric(Target),0),
           .before = Comment
         ) %>%
         filter(gf_period %in% input$gf_period) %>%
         select(-period) %>%
         mutate(
-          across(c(Target, Result, `% Achieved`), 
+          across(c(Target, Result, Percent), 
                  ~ prettyNum(as.numeric(.), big.mark = ","))
         ) 
       
@@ -195,7 +195,7 @@ server <- function(input, output, session) {
         output$data_table <- renderDT({
           datatable(prog_data, options = list(pageLength = 5)) %>%
             formatStyle(
-              '% Achieved',
+              'Percent',
               backgroundColor = styleInterval(
                 c(50, 75),  
                 c('red', 'yellow', 'green')  
