@@ -30,7 +30,7 @@ hiv_krcs_gc7 <- datimutils::getMetadata("dataElements?filter=dataSetElements.dat
                         TRUE ~ "No")
   )
 
-fwrite(hiv_krcs_gc7, "metadata/hiv_krcs_gc7.csv")
+fwrite(hiv_krcs_gc7, "metadata/hiv_krcs_gc7.txt")
 
 DetailedDataElements <- datimutils::getMetadata("dataElements", 
                                                 fields = "name, id, code, shortName, description, formName,domainType, valueType, aggregationOperator, categoryCombo") |>

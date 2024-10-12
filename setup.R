@@ -6,7 +6,6 @@ library(DT)
 library(shiny)
 library(thematic)
 library(bslib)
-library(gt)
 library(rsconnect)
 library(shinythemes)
 library(tidyverse)
@@ -18,6 +17,11 @@ library(wesanderson)
 library(pins)
 library(bslib)
 
+#renv::install("rlang")
+#renv::install("gt")
+#renv::snapshot()
+
+library(gt)
 
 # renv::remove("datimutils")
 # renv::install("pepfar-datim/datimutils")
@@ -71,7 +75,7 @@ theme_set(
 )
 
 
-des <- fread("metadata/hiv_krcs_gc7.csv") %>%
+des <- fread("metadata/hiv_krcs_gc7.txt") %>%
   rename(Indicator = description)
 
 

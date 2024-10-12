@@ -167,6 +167,7 @@ server <- function(input, output, session) {
         as.data.frame() |>
         left_join(des, by = c("dataElement" = "id")) %>%
         left_join(all_periods, by = c("period" = "quarter")) %>%
+        filter(grepl("/COVERAGE", code)) %>%
         mutate(
           data = case_when(str_detect(code, "TARGET") ~ "Target",
                            str_detect(code, "RESULT") ~ "Result",
@@ -182,13 +183,17 @@ server <- function(input, output, session) {
           .before = Comment
         ) %>%
         filter(gf_period %in% input$gf_period) %>%
-        select(-period)
+        select(-period) %>%
+        mutate(
+          across(c(Target, Result, `% Achieved`), 
+                 ~ prettyNum(as.numeric(.), big.mark = ","))
+        ) 
       
       incProgress(1)
       
       if (!is.null(prog_data)) {
         output$data_table <- renderDT({
-          datatable(prog_data, options = list(pageLength = 10)) %>%
+          datatable(prog_data, options = list(pageLength = 5)) %>%
             formatStyle(
               '% Achieved',
               backgroundColor = styleInterval(

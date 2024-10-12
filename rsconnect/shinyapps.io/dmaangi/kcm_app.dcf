@@ -1,0 +1,12 @@
+name: kcm_app
+title: kcm_app
+username: dmaangi
+account: dmaangi
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 12997583
+bundleId: 9214510
+url: https://dmaangi.shinyapps.io/kcm_app/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
