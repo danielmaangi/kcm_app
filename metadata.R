@@ -19,10 +19,10 @@ fwrite(dataSets, "metadata/datasets.csv")
 
 # KRCS
 hiv_krcs_gc7 <- datimutils::getMetadata("dataElements?filter=dataSetElements.dataSet.id:eq:WFU6M2XN4W4", 
-                                    fields = "name, id, code, shortName, description, formName,domainType, valueType, aggregationOperator, categoryCombo") %>%
+                                    fields = "name, id, code, shortName, description, formName,fieldMask,domainType, valueType, aggregationOperator, categoryCombo") %>%
   dplyr::arrange(name) |>
   mutate(aggregationoperator = NA_character_) |>
-  select(name, id, code, shortName, description, formName,domainType, valueType, aggregationoperator, categoryCombo.id)|>
+  select(name, id, code, shortName, description, formName,domainType, valueType, aggregationoperator,fieldMask, categoryCombo.id)|>
   mutate(
     class = "Programmes PR",
     cycle = "GC7",

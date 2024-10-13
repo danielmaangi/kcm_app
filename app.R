@@ -10,7 +10,7 @@ ui <- page_sidebar(
   theme = bs_theme(bootswatch = "litera",
                    base_font = font_google("Space Mono"),
                    code_font = font_google("Space Mono")),
-  title = "Global Fund Grants Dashboard",
+  title = "KCM Oversight Dashboard",
   tags$style(HTML("
     .navbar-brand {
       background-color: #17A2B8 !important;
@@ -36,40 +36,45 @@ ui <- page_sidebar(
   ")),
   
   sidebar = sidebar(
-    selectInput("grant", "Select Grant",
+    selectInput("grant", "Grant",
                 choices = grants,
                 selected = "HIV, KRCS",
                 multiple = FALSE),
     
-    selectInput("gf_period", "Select Period",
+    selectInput("gf_period", "Period",
                 choices = gf_period,
                 selected = max(gf_period),
                 multiple = FALSE),
     
+    selectInput("programme_indicator", "Programme indicators",
+                choices = programme_indicators,
+                selected = "Coverage",
+                multiple = FALSE),
+    
     dateInput("start_date", "Start Date", value = Sys.Date() - 1100),
     dateInput("end_date", "End Date", value = Sys.Date()),
-    actionButton("refresh", "Refresh Data")
+    actionButton("refresh", "Refresh", icon = icon("arrows-rotate"))
   ),
   
   tabsetPanel(
     tabPanel("Programmes", icon = icon("suitcase-medical"),
              tabsetPanel(
-               tabPanel("Coverage", tags$div(style = "margin-top: 20px;"),
+               tabPanel("Overview", tags$div(style = "margin-top: 20px;"),
                         layout_columns(
-                          card(card_header("Coverage indicators", class = "bold-header"),
+                          card(card_header("Current period", class = "bold-header"),
                           DTOutput("data_table"),
                           verbatimTextOutput("error_message")
                           )
                         )
                ),
-               tabPanel("Outcomes", tags$div(style = "margin-top: 20px;"),
+               tabPanel("Trend: Results vs Targets", tags$div(style = "margin-top: 20px;"),
                         layout_columns(
                           card(card_header("Outcome indicators", 
                                            class = "bold-header"))
                         )
                ),
                
-               tabPanel("Impact", tags$div(style = "margin-top: 20px;"),
+               tabPanel("Trend: Results only", tags$div(style = "margin-top: 20px;"),
                         layout_columns(
                           card(card_header("Impact Indicators", 
                                            class = "bold-header"))
@@ -100,6 +105,9 @@ ui <- page_sidebar(
   )
 )
 
+#***************************************************************************************
+#---------------------------------------------------------------------------------------
+
 server <- function(input, output, session) {
   
   # Create a reactive trigger for refreshing data
@@ -112,7 +120,7 @@ server <- function(input, output, session) {
     refresh_trigger()
     
     api_url <- paste0(
-      base_url, "api/dataValueSets?dataSet=", dataSet,
+      base_url, "api/dataValueSets?dataSet=", input$grant,
       "&&startDate=", input$start_date, 
       "&endDate=", input$end_date, 
       "&orgUnit=", orgunit, 
@@ -163,37 +171,69 @@ server <- function(input, output, session) {
       
       output$error_message <- renderText("")
       
-      prog_data <- pull_data_from_dhis2() %>%
+      prog_data <- prog_data <- pull_data_from_dhis2() %>%
         as.data.frame() |>
         left_join(des, by = c("dataElement" = "id")) %>%
         left_join(all_periods, by = c("period" = "quarter")) %>%
-        filter(grepl("/COVERAGE", code)) %>%
         mutate(
           data = case_when(str_detect(code, "TARGET") ~ "Target",
                            str_detect(code, "RESULT") ~ "Result",
                            str_detect(code, "COMMENT") ~ "Comment",
                            TRUE ~ NA_character_
+          ),
+          type = case_when(str_detect(code, "COVERAGE") ~ "Coverage",
+                           str_detect(code, "OUTCOME") ~ "Outcome",
+                           str_detect(code, "IMPACT") ~ "Impact",
+                           TRUE ~ NA_character_
           )
+          
         ) %>%
-        select(period, Indicator , data, value) %>%
+        select(period, Indicator , fieldMask, type, data, value) %>%
         pivot_wider(names_from = "data",
-                    values_from = "value") %>%
-        mutate(
-          Percent = round(as.numeric(Result)*100/ as.numeric(Target),0),
-          .before = Comment
-        ) %>%
+                    values_from = "value",
+                    values_fill = NA) %>%
+          mutate(
+            Percent = round(as.numeric(Result)*100/ as.numeric(Target),0),
+            .before = Comment
+          ) %>%
+        mutate(Percent = ifelse(fieldMask == "Inverse", 
+                                round(10000 / Percent,0), 
+                                Percent)) %>%
+        select(-fieldMask) %>%
+          mutate(
+            across(c(Target, Result, Percent), 
+                   ~ prettyNum(as.numeric(.), big.mark = ","))
+          ) %>%
+        filter(type == input$programme_indicator)%>%
+        select(-type) %>%
         filter(gf_period %in% input$gf_period) %>%
-        select(-period) %>%
-        mutate(
-          across(c(Target, Result, Percent), 
-                 ~ prettyNum(as.numeric(.), big.mark = ","))
-        ) 
+        select(-period)
+      
       
       incProgress(1)
       
       if (!is.null(prog_data)) {
         output$data_table <- renderDT({
-          datatable(prog_data, options = list(pageLength = 5)) %>%
+          datatable(prog_data,
+                    options = list(
+                      pageLength = 5,
+                      columnDefs = list(
+                        list(
+                          targets = 5, 
+                          visible = FALSE
+                        ),
+                        list(
+                          targets = 4,
+                          createdCell = JS(
+                            "function(td, cellData, rowData, row, col) {
+                              $(td).attr('title', rowData[5]); // Comment column
+                             $(td).tooltip();
+                             }"
+                          )
+                        )
+                      )
+                    )
+                    ) %>%
             formatStyle(
               'Percent',
               backgroundColor = styleInterval(
