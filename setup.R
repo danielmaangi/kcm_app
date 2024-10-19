@@ -75,7 +75,7 @@ theme_set(
 )
 
 
-des <- fread("metadata/hiv_krcs_gc7.txt") %>%
+des <- fread("metadata/dataElements.txt") %>%
   rename(Indicator = description)
 
 

@@ -10,7 +10,7 @@ ui <- page_sidebar(
   theme = bs_theme(bootswatch = "litera",
                    base_font = font_google("Space Mono"),
                    code_font = font_google("Space Mono")),
-  title = "KCM Oversight Dashboard",
+  title = "GC7 Dashboard",
   tags$style(HTML("
     .navbar-brand {
       background-color: #17A2B8 !important;
@@ -38,7 +38,7 @@ ui <- page_sidebar(
   sidebar = sidebar(
     selectInput("grant", "Grant",
                 choices = grants,
-                selected = "HIV, KRCS",
+                selected = "WFU6M2XN4W4",
                 multiple = FALSE),
     
     selectInput("gf_period", "Period",
@@ -67,14 +67,9 @@ ui <- page_sidebar(
                           )
                         )
                ),
-               tabPanel("Trend: Results vs Targets", tags$div(style = "margin-top: 20px;"),
-                        layout_columns(
-                          card(card_header("Outcome indicators", 
-                                           class = "bold-header"))
-                        )
-               ),
+
                
-               tabPanel("Trend: Results only", tags$div(style = "margin-top: 20px;"),
+               tabPanel("Trend", tags$div(style = "margin-top: 20px;"),
                         layout_columns(
                           card(card_header("Impact Indicators", 
                                            class = "bold-header"))
@@ -105,15 +100,15 @@ ui <- page_sidebar(
   )
 )
 
-#***************************************************************************************
-#---------------------------------------------------------------------------------------
+# ***************************************************************************************
+# ---------------------------------------------------------------------------------------
 
 server <- function(input, output, session) {
   
   # Create a reactive trigger for refreshing data
   refresh_trigger <- reactiveVal(FALSE)
   
-  pull_data_from_dhis2 <- reactive({
+  pull_program_data <- reactive({
     req(input$start_date, input$end_date)
     
     # Check refresh trigger
@@ -171,19 +166,20 @@ server <- function(input, output, session) {
       
       output$error_message <- renderText("")
       
-      prog_data <- prog_data <- pull_data_from_dhis2() %>%
+      prog_data <- prog_data <- pull_program_data() %>%
         as.data.frame() |>
         left_join(des, by = c("dataElement" = "id")) %>%
         left_join(all_periods, by = c("period" = "quarter")) %>%
         mutate(
-          data = case_when(str_detect(code, "TARGET") ~ "Target",
-                           str_detect(code, "RESULT") ~ "Result",
-                           str_detect(code, "COMMENT") ~ "Comment",
+          data = case_when(str_detect(name, "/TAR") ~ "Target",
+                           str_detect(name, "/RES") ~ "Result",
+                           str_detect(name, "/COM") ~ "Comment",
                            TRUE ~ NA_character_
           ),
-          type = case_when(str_detect(code, "COVERAGE") ~ "Coverage",
-                           str_detect(code, "OUTCOME") ~ "Outcome",
-                           str_detect(code, "IMPACT") ~ "Impact",
+          type = case_when(str_detect(name, "COVERAGE") ~ "Coverage",
+                           str_detect(name, "OUTCOME") ~ "Outcome",
+                           str_detect(name, "IMPACT") ~ "Impact",
+                           str_detect(name, "PSEAH") ~ "PSEAH",
                            TRUE ~ NA_character_
           )
           
@@ -192,6 +188,7 @@ server <- function(input, output, session) {
         pivot_wider(names_from = "data",
                     values_from = "value",
                     values_fill = NA) %>%
+        select(period, Indicator , fieldMask, type, Target, Result, Comment) %>%
           mutate(
             Percent = round(as.numeric(Result)*100/ as.numeric(Target),0),
             .before = Comment
