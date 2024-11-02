@@ -75,8 +75,7 @@ theme_set(
 )
 
 
-des <- fread("metadata/dataElements.txt") %>%
-  rename(Indicator = description)
+des <- fread("metadata/dataElements.txt") 
 
 
 

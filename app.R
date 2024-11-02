@@ -3,31 +3,30 @@ source("periods.R")
 source("grants.R")
 source("config/credentials.R")
 
-
 thematic_shiny()
 
 ui <- page_sidebar(
-  theme = bs_theme(bootswatch = "litera",
+  theme = bs_theme(bootswatch = "cosmo",  # Use a more vibrant theme
                    base_font = font_google("Space Mono"),
                    code_font = font_google("Space Mono")),
   title = "GC7 Dashboard",
   tags$style(HTML("
     .navbar-brand {
-      background-color: #17A2B8 !important;
+      background-color: #FF5733 !important;
       color: white !important;
     }
     .navbar {
-      background-color: #17A2B8 !important;
+      background-color: #FF5733 !important;
       color: white !important;
     }
     .nav-tabs > li > a:hover {
-      background-color: #17A2B8 !important;
+      background-color: #FF5733 !important;
       color: white !important;
     }
     .nav-tabs > li.active > a, 
     .nav-tabs > li.active > a:focus, 
     .nav-tabs > li.active > a:hover {
-      background-color: #17A2B8 !important;
+      background-color: #FF5733 !important;
       color: white !important;
     }
     .bold-header {
@@ -38,7 +37,7 @@ ui <- page_sidebar(
   sidebar = sidebar(
     selectInput("grant", "Grant",
                 choices = grants,
-                selected = "WFU6M2XN4W4",
+                selected = "Vg7RJh2mM35",
                 multiple = FALSE),
     
     selectInput("gf_period", "Period",
@@ -58,60 +57,86 @@ ui <- page_sidebar(
   
   tabsetPanel(
     tabPanel("Programmes", icon = icon("suitcase-medical"),
-             tabsetPanel(
-               tabPanel("Overview", tags$div(style = "margin-top: 20px;"),
-                        layout_columns(
-                          card(card_header("Current period", class = "bold-header"),
-                          DTOutput("data_table"),
-                          verbatimTextOutput("error_message")
-                          )
-                        )
-               ),
-
-               
-               tabPanel("Trend", tags$div(style = "margin-top: 20px;"),
-                        layout_columns(
-                          card(card_header("Impact Indicators", 
-                                           class = "bold-header"))
-                        )
-               )
-             )
+             uiOutput("prog_dynamic_tab")  # Placeholder for the dynamically generated tab
     ),
     
     tabPanel("Finance", icon = icon("sack-dollar"),
              tabsetPanel(
-               tabPanel("Fund Absorption", tags$div(style = "margin-top: 20px;"),
-                        layout_columns(
-                          card(card_header("Fund Absorption", class = "bold-header"))
+               tabPanel("Global Funds", tags$div(style = "margin-top: 20px;"),
+                        fluidRow(
+                          # Card 1: Finance Table (70% width)
+                          column(7, 
+                                 card(
+                                   card_header("Figures in USD", class = "bold-header"),
+                                   DTOutput("finance_table"),
+                                   textOutput("finance_legend")  # Added legend for Finance Table
+                                 )
+                          ),
+                          
+                          # Card 2: Comments (30% width)
+                          column(5,
+                                 card(
+                                   card_header("Context", class = "bold-header"),
+                                   textOutput("finance_comments")
+                                 )
+                          )
+                        )
+               ),
+               
+               tabPanel("Counterpart Funds", tags$div(style = "margin-top: 20px;"),
+                        fluidRow(
+                          # Card 1: Finance Table (70% width)
+                          column(7, 
+                                 card(
+                                   card_header("Figures in KES", class = "bold-header"),
+                                   DTOutput("cofin_table"),
+                                   textOutput("cofin_legend")  # Added legend for Co-finance Table
+                                 )
+                          ),
+                          
+                          # Card 2: Comments (30% width)
+                          column(5,
+                                 card(
+                                   card_header("Context", class = "bold-header"),
+                                   textOutput("cofin_comments")
+                                 )
+                          )
                         )
                )
+               
              )
     ),
     
     tabPanel("Grant Rating", icon = icon("sack-dollar"),
              tabsetPanel(
-               tabPanel("Overall", tags$div(style = "margin-top: 20px;"),
-                        layout_columns(
-                          card(card_header("Description", class = "bold-header"))
-                        )
+               layout_columns(
+                 card(card_header("Overall Rating Summary", class = "bold-header"),
+                      DTOutput("rating_table")
+                 )
                )
              )
     )
   )
 )
 
-# ***************************************************************************************
-# ---------------------------------------------------------------------------------------
-
 server <- function(input, output, session) {
   
-  # Create a reactive trigger for refreshing data
   refresh_trigger <- reactiveVal(FALSE)
+  
+  output$prog_dynamic_tab <- renderUI({
+    tabsetPanel(
+      tags$div(style = "margin-top: 20px;"),
+      layout_columns(
+        card(card_header(paste0(input$programme_indicator, " indicators"), class = "bold-header"),
+             DTOutput("data_table"),
+             verbatimTextOutput("error_message")
+        )
+      )
+    )
+  })
   
   pull_program_data <- reactive({
     req(input$start_date, input$end_date)
-    
-    # Check refresh trigger
     refresh_trigger()
     
     api_url <- paste0(
@@ -166,46 +191,145 @@ server <- function(input, output, session) {
       
       output$error_message <- renderText("")
       
-      prog_data <- prog_data <- pull_program_data() %>%
+      grant_data <- pull_program_data() %>%
         as.data.frame() |>
         left_join(des, by = c("dataElement" = "id")) %>%
-        left_join(all_periods, by = c("period" = "quarter")) %>%
-        mutate(
-          data = case_when(str_detect(name, "/TAR") ~ "Target",
-                           str_detect(name, "/RES") ~ "Result",
-                           str_detect(name, "/COM") ~ "Comment",
-                           TRUE ~ NA_character_
-          ),
-          type = case_when(str_detect(name, "COVERAGE") ~ "Coverage",
-                           str_detect(name, "OUTCOME") ~ "Outcome",
-                           str_detect(name, "IMPACT") ~ "Impact",
-                           str_detect(name, "PSEAH") ~ "PSEAH",
-                           TRUE ~ NA_character_
-          )
-          
-        ) %>%
+        left_join(all_periods, by = c("period" = "quarter"))
+      
+      prog_data <- grant_data %>%
+        filter(class %in% c("Program", "PSEAH")) %>%
+        filter(!is.na(data)) %>%
+        filter(!is.na(type)) %>%
         select(period, Indicator , fieldMask, type, data, value) %>%
         pivot_wider(names_from = "data",
                     values_from = "value",
                     values_fill = NA) %>%
         select(period, Indicator , fieldMask, type, Target, Result, Comment) %>%
-          mutate(
-            Percent = round(as.numeric(Result)*100/ as.numeric(Target),0),
-            .before = Comment
-          ) %>%
+        mutate(
+          Percent = round(as.numeric(Result)*100/ as.numeric(Target),0),
+          .before = Comment
+        ) %>%
         mutate(Percent = ifelse(fieldMask == "Inverse", 
                                 round(10000 / Percent,0), 
                                 Percent)) %>%
         select(-fieldMask) %>%
-          mutate(
-            across(c(Target, Result, Percent), 
-                   ~ prettyNum(as.numeric(.), big.mark = ","))
-          ) %>%
+        mutate(
+          across(c(Target, Result, Percent), 
+                 ~ prettyNum(as.numeric(.), big.mark = ","))
+        ) %>%
         filter(type == input$programme_indicator)%>%
         select(-type) %>%
         filter(gf_period %in% input$gf_period) %>%
         select(-period)
       
+      fin_data <- grant_data %>%
+        filter(class %in% c("Finance")) %>%
+        select(period, Indicator , value)
+      
+      finance_comments <- fin_data %>%
+        filter(Indicator == "Comments") %>%
+        pull(value)
+      
+      fin_summary <- fin_data %>%
+        filter(Indicator != "Comments") %>%
+        filter(gf_period %in% input$gf_period) %>%
+        select(-period) %>%
+        mutate(value = as.numeric(value)) %>%
+        pivot_wider(names_from = Indicator,
+                    values_from = value) %>%
+        transmute(
+          `Cumulative Budget` = sum(`Cumulative Budget`,na.rm = T),
+          `Cumulative Expenditure` = sum(`Cumulative Funds Expensed by PR`, na.rm = T),
+          Commitments = sum(Commitments, na.rm = T),
+          Obligations = sum(Obligations, na.rm = T),
+          Variance = sum(`Cumulative Budget`,na.rm = T) - sum(`Cumulative Funds Expensed by PR`, na.rm = T),
+          `Absorption Rate` = round(`Cumulative Funds Expensed by PR` / `Cumulative Budget` * 100,1)
+        ) %>%
+        pivot_longer(everything(),
+                     names_to = "Indicator",
+                     values_to = "Result") %>%
+        mutate(res_col = case_when(Indicator == "Absorption Rate" ~ as.numeric(Result), 
+                                   TRUE ~ NA_real_))
+      
+      cofin_data <- grant_data %>%
+        filter(class %in% c("Co-financing")) %>%
+        select(period, Indicator , value)
+      
+      
+      cofin_comments <- cofin_data %>%
+        filter(Indicator == "Comments") %>%
+        pull(value)
+      
+      cofin_summary <- if(!input$grant %in% c("XEUXTIGkU8H","l5VURDJNlpx","Vg7RJh2mM35")){
+        tibble(
+          Indicator = c("Cumulative Budget","Cumulative Expenditure" ,"Commitments" ,"Obligations" ,"Variance","Absorption Rate"),
+          Result = NA_real_,
+          res_col = NA_real_
+        )
+      } else { cofin_data %>%
+          filter(Indicator != "Comments") %>%
+          filter(gf_period %in% input$gf_period) %>%
+          select(-period) %>%
+          mutate(value = as.numeric(value)) %>%
+          pivot_wider(names_from = Indicator,
+                      values_from = value) %>%
+          transmute(
+            `Cumulative Budget` = sum(`Cumulative budget`,na.rm = T),
+            `Cumulative Expenditure` = sum(`Cumulative expenditure`, na.rm = T),
+            Commitments = sum(Commitments, na.rm = T),
+            Obligations = sum(Obligations, na.rm = T),
+            Variance = sum(`Cumulative budget`,na.rm = T) - sum(`Cumulative expenditure`, na.rm = T),
+            `Absorption Rate` = round(`Cumulative Expenditure` / `Cumulative Budget` * 100,1)
+          ) %>%
+          pivot_longer(everything(),
+                       names_to = "Indicator",
+                       values_to = "Result") %>%
+          mutate(res_col = case_when(Indicator == "Absorption Rate" ~ as.numeric(Result), 
+                                     TRUE ~ NA_real_))
+      }
+      
+      
+      rating <- grant_data %>%
+        filter(class %in% c("Rating")) %>%
+        select(period, Indicator , value) %>%
+        filter(gf_period %in% input$gf_period) %>%
+        select(-period) %>%
+        transmute(
+          Category = case_when(str_detect(Indicator, "Financial") ~ "Financial",
+                               str_detect(Indicator, "Programmatic") ~ "Programmatic",
+                               TRUE ~ NA_character_
+          ),
+          type = case_when(str_detect(Indicator, "End Date") ~ "End Date",
+                           str_detect(Indicator, "Start Date") ~ "Start Date",
+                           str_detect(Indicator, "Start Date") ~ "Start Date",
+                           str_detect(Indicator, "Rating Comments") ~ "Comments",
+                           str_detect(Indicator, "Financial Rating") ~ "Rating",
+                           str_detect(Indicator, "Programmatic Rating") ~ "Rating",
+                           TRUE ~ NA_character_
+          ),
+          value = value
+          
+        ) %>%
+        pivot_wider(names_from = type,
+                    values_from = value) %>%
+        mutate(period = paste0(format(as.Date(`Start Date`),"%b-%y"), 
+                               " to ", 
+                               format(as.Date(`End Date`), "%b-%y")),
+               .before = Comments) %>%
+        select(-c(`Start Date`, `End Date` ))
+      
+      
+      prog_rate <- rating %>% filter(Category == "Programmatic") %>% pull(Rating) %>%
+        substr(1,1)
+      fin_rate <- rating %>% filter(Category == "Financial") %>% pull(Rating) %>%
+        substr(1,1)
+      
+      overall_rating <- tibble(
+        Category = "Overall",
+        Rating = paste0(prog_rate, "-", fin_rate)
+      )
+      
+      rating_all <- bind_rows(rating, overall_rating)
       
       incProgress(1)
       
@@ -230,7 +354,7 @@ server <- function(input, output, session) {
                         )
                       )
                     )
-                    ) %>%
+          ) %>%
             formatStyle(
               'Percent',
               backgroundColor = styleInterval(
@@ -248,18 +372,196 @@ server <- function(input, output, session) {
           datatable(data.frame(message = "No data available or request failed."))
         })
       }
+      
+      if (!is.null(fin_summary)) {
+        output$finance_table <- renderDT({
+          datatable(fin_summary,
+                    options = list(
+                      pageLength = nrow(fin_summary),
+                      paging = FALSE,
+                      searching = FALSE,
+                      info = FALSE,
+                      dom = 't',
+                      autoWidth = TRUE,
+                      columnDefs = list(list(
+                        targets = 2,  
+                        visible = FALSE
+                      ))
+                    ),
+                    rownames = FALSE,
+                    colnames = NULL,
+                    caption = "Source: KCM Dashboard"
+          ) %>%
+            formatCurrency(
+              columns = 'Result',     
+              currency = "USD ",         
+              interval = 3,           
+              mark = ",",             
+              digits = 2,             
+              dec.mark = ".",         
+              before = TRUE,          
+              rows = which(fin_summary$Indicator != "Absorption Rate") 
+            ) %>%
+            formatStyle(
+              columns = 'Result',
+              valueColumns = 'res_col',
+              target = c("cell"),
+              backgroundColor = styleInterval(
+                c(50, 75),  
+                c('red', 'yellow', 'green')  
+              ),
+              rows = which(fin_summary$Indicator == "Absorption Rate")
+            ) %>%
+            formatStyle(
+              c('Indicator', 'Result'),   
+              fontWeight = styleEqual("Absorption Rate", "bold") 
+            )
+        })
+        
+        
+        output$finance_comments <- renderText({
+          if (length(finance_comments) > 0) {
+            finance_comments
+          } else {
+            "No comments available."
+          }
+        })
+        
+        output$finance_legend <- renderText({
+          "Red: < 50%, Yellow: 50 - 75 %, Green: > 75%"
+        })
+      }
+      
+      output$cofin_legend <- renderUI({
+        HTML("<span style='color: red;'>Red: < 50%</span>, 
+              <span style='color: yellow;'>Yellow: 50% to 75%</span>, 
+              <span style='color: green;'>Green: > 75%</span>")
+      })
+      
+      
+      output$cofin_table <- if (sum(cofin_summary$Result, na.rm = T) > 0) { 
+        renderDT({
+          datatable(cofin_summary,
+                    options = list(
+                      pageLength = nrow(cofin_summary),
+                      paging = FALSE,
+                      searching = FALSE,
+                      info = FALSE,
+                      dom = 't',
+                      autoWidth = TRUE,
+                      columnDefs = list(list(
+                        targets = 2,  
+                        visible = FALSE
+                      ))
+                    ),
+                    rownames = FALSE,
+                    colnames = NULL,
+                    caption = "Source: KCM Dashboard"
+          ) %>%
+            formatCurrency(
+              columns = 'Result',     
+              currency = "KES ",         
+              interval = 3,           
+              mark = ",",             
+              digits = 2,             
+              dec.mark = ".",         
+              before = TRUE,          
+              rows = which(cofin_summary$Indicator != "Absorption Rate") 
+            ) %>%
+            formatStyle(
+              columns = 'Result',
+              valueColumns = 'res_col',
+              target = c("cell"),
+              backgroundColor = styleInterval(
+                c(50, 75),  
+                c('red', 'yellow', 'green')  
+              ),
+              rows = which(fin_summary$Indicator == "Absorption Rate")
+            ) %>%
+            formatStyle(
+              c('Indicator', 'Result'),   
+              fontWeight = styleEqual("Absorption Rate", "bold") 
+            )
+        })
+      } else {
+        renderDT({
+          datatable(
+            data.frame(message = "Not applicable, data not available or request failed."),
+            options = list(
+              dom = 't',        
+              paging = FALSE,   
+              searching = FALSE
+            ),
+            colnames = NULL,
+            rownames = FALSE    
+          )
+        })
+      }
+      
+      
+      output$cofin_comments <- if (length(cofin_comments) > 0) {
+        renderText({
+          cofin_comments
+        }) 
+      } else {
+        renderText({"No comments available."})
+      }
+      
+      output$cofin_legend <- renderText({
+        "Red: < 50%, Yellow: 50 - 75 %, Green: > 75%"
+      })
+      
+      
+      output$rating_table <- renderDT({
+        datatable(rating_all,
+                  options = list(
+                    dom = 't',
+                    paging = FALSE,
+                    searching = FALSE,
+                    colnames = NULL,
+                    rownames = FALSE,
+                    columnDefs = list(
+                      list(
+                        targets = c(3,4), 
+                        visible = FALSE
+                      ),
+                      list(
+                        targets = 2,
+                        createdCell = JS(
+                          "function(td, cellData, rowData, row, col) {
+                      $(td).attr('title', rowData[4]); // Comment column
+                     $(td).tooltip();
+                     }"
+                        )
+                      )
+                    )
+                  )
+        ) %>%
+          formatStyle(
+            'Rating',
+            backgroundColor = styleEqual(
+              c("A - 100+ %", "B - 90-99 %", "C - 60-89 %", "D - 30-59 %", "E <30 %",
+                "1 - Excellent, 95+ %", "2 - Good, 85-94 %", "3 - Moderate, 75-84 %", "4 - Poor, 65-74 %", "5 - Very Poor, <65 %"),
+              c("darkgreen", "lightgreen", "yellow", "orange", "red",
+                "darkgreen", "lightgreen", "yellow", "orange", "red")
+            ),
+            color = styleEqual(
+              c("A - 100+ %", "B - 90-99 %", "C - 60-89 %", "D - 30-59 %", "E <30 %",
+                "1 - Excellent, 95+ %", "2 - Good, 85-94 %", "3 - Moderate, 75-84 %", "4 - Poor, 65-74 %", "5 - Very Poor, <65 %"),
+              c("white", "black", "black", "black", "white",
+                "white", "black", "black", "black", "white")
+            )
+          )
+        
+      })
+      
+      
     })
   })
   
-  # Observe the Refresh Data button click
   observeEvent(input$refresh, {
-    # Update the refresh trigger to force data re-fetch
     refresh_trigger(!refresh_trigger())
   })
 }
-
-
-
-
 
 shinyApp(ui = ui, server = server)
