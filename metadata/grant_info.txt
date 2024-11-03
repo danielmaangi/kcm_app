@@ -1,0 +1,55 @@
+event,status,grant_number,component,principal_recipient,start_date,end_date,signed_amount,committed_amount,disbursed_amount,goal,objectives,dataset_id
+Ck3YI0WH7Me,ACTIVE,KEN-H-KRCSPO6 2023-2025,HIV,KRCS,2024-07-01,2027-06-30,53506662,29061674,8631674,"To provide comprehensive HIV prevention, Treatment, Care and Support towards Universal Health Coverage for all people in Kenya","To reduce new HIV infections by 75%
+
+To reduce AIDS-related mortality by 50%
+
+To micro-eliminate viral hepatitis and reduce the incidence of sexually transmitted infections
+
+To reduce HIV related stigma and discrimination to less than 25%",WFU6M2XN4W4
+UhMX0LzWMyP,ACTIVE,KEN-H-TNTPO6 2023-2025,HIV,TNT,2024-07-01,2024-06-30,179073992,81113517,1019049,"To provide comprehensive HIV prevention, treatment, care and support towards Universal Health Coverage for all people in Kenya
+
+To achieve equitable, affordable, accessible and high quality care for all.","To reduce new HIV infections by 75%
+
+To reduce AIDS-related mortality by 50%
+
+To micro-eliminate viral hepatitis and reduce the incidence of sexually transmitted infections
+
+To reduce HIV related stigma and discimination to less than 25%
+
+To increase domestic financing for the HIV response to 50%
+
+To strengthen the health system to provide universal health care in a sustainable and resilient manner",XEUXTIGkU8H
+xV9UWugdw39,ACTIVE,KEN-M-AMREFPO4 2023-2025,Malaria,AMREF,2024-07-01,2027-06-30,15075314,8192071,2386051,To reduce malaria incidence and deaths by at least 75 percent of the 2016 levels by 2023,"To protect 100 percent of people living in malaria risk areas through access to appropriate malaria preventive interventions by 2023
+
+To manage 100 percent of suspected malaria cases according to the Kenya malaria treatment guidelines by 2023
+
+To establish systems for malaria elimination in targeted counties by 2023
+
+To increase utilisation of appropriate malaria interventions in Kenya to at least 80 percent by 2023
+
+To strengthen malaria surveillance and use of information to improve decision making for programme performance
+
+To provide leadership and management for optimal implementation of malaria interventions at all levels, for the achievement of all objectives by 2023",SbX36Gmomkz
+AjSsO3NOutH,ACTIVE,KEN-M-TNTPO4 2023-2025,Malaria,TNT,2024-07-01,2027-06-30,57859369,10894233,796716,To reduce malaria incidence and deaths by at least 75 percent of the 2016 levels by 2023,"To protect 100 percent of people living in malaria risk areas through access to appropriate malaria preventive interventions by 2023
+
+To manage 100 percent of suspected malaria cases according to the Kenya malaria treatment guidelines by 2023
+
+To establish systems for malaria elimination in targeted counties by 2023
+
+To increase utilisation of appropriate malaria interventions in Kenya to at least 80 percent by 2023
+
+To strengthen malaria surveillance and use of information to improve decision making for programme performance
+
+To provide leadership and management for optimal implementation of malaria interventions at all levels, for the achievement of all objectives by 2023",l5VURDJNlpx
+LyvC4ACDiNF,ACTIVE,KEN-T-AMREFPO6 2023-2025,TB,AMREF,2024-07-01,2027-06-30,46642666,23268957,2733775,"To ensure provision of quality care and prevention services for TB,and lung diseases for all people in Kenya
+
+To achieve equitable, affordable, accessible and high quality care for all.","Reduce TB incidence rate by 80% by 2030 compared to 2015 baseline
+
+Reduce TB mortality rate by 90% by 2030 compared to 2015 baseline
+
+Zero families facing caterstrophic cost due to TB and chronic lung disease",SgPSOoSZ8Iz
+rW8l3j0PyZi,ACTIVE,KEN-T-TNTPO6 2023-2025,TB,TNT,2024-06-01,2027-06-30,55831065,24825786,9380416.61,"To ensure provision of quality care and prevention services for TB,and lung diseases for all people in Kenya","Reduce TB incidence rate by 80% by 2030 compared to 2015 baseline
+
+Reduce TB mortality rate by 90% by 2030 compared to 2015 baseline
+
+Zero families facing caterstrohic cost due to TB and chronic lung disease",Vg7RJh2mM35

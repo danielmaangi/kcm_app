@@ -77,5 +77,12 @@ theme_set(
 
 des <- fread("metadata/dataElements.txt") 
 
+grant_info <- fread("metadata/grant_info.txt") %>%
+  mutate(
+    goal_bullets = map(str_split(goal, "(?=To |Achieve |Reduce )"), ~ .x[.x != ""]),
+    objectives_bullets = map(str_split(objectives, "(?=To |Achieve |Reduce )"), ~ .x[.x != ""])
+  )
+
+
 
 

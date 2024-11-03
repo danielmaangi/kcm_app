@@ -37,7 +37,7 @@ ui <- page_sidebar(
   sidebar = sidebar(
     selectInput("grant", "Grant",
                 choices = grants,
-                selected = "Vg7RJh2mM35",
+                selected = "WFU6M2XN4W4",
                 multiple = FALSE),
     
     selectInput("gf_period", "Period",
@@ -56,6 +56,15 @@ ui <- page_sidebar(
   ),
   
   tabsetPanel(
+    tabPanel("Grant overview", icon = icon("circle-info"),
+             tabsetPanel(
+               layout_columns(
+                 card(uiOutput("grant_info_cards")
+                 )
+               )
+             )
+    ),
+    
     tabPanel("Programmes", icon = icon("suitcase-medical"),
              uiOutput("prog_dynamic_tab")  # Placeholder for the dynamically generated tab
     ),
@@ -104,16 +113,6 @@ ui <- page_sidebar(
                         )
                )
                
-             )
-    ),
-    
-    tabPanel("Grant Rating", icon = icon("sack-dollar"),
-             tabsetPanel(
-               layout_columns(
-                 card(card_header("Overall Rating Summary", class = "bold-header"),
-                      DTOutput("rating_table")
-                 )
-               )
              )
     )
   )
@@ -289,35 +288,43 @@ server <- function(input, output, session) {
       }
       
       
-      rating <- grant_data %>%
-        filter(class %in% c("Rating")) %>%
-        select(period, Indicator , value) %>%
-        filter(gf_period %in% input$gf_period) %>%
-        select(-period) %>%
-        transmute(
-          Category = case_when(str_detect(Indicator, "Financial") ~ "Financial",
-                               str_detect(Indicator, "Programmatic") ~ "Programmatic",
-                               TRUE ~ NA_character_
-          ),
-          type = case_when(str_detect(Indicator, "End Date") ~ "End Date",
-                           str_detect(Indicator, "Start Date") ~ "Start Date",
-                           str_detect(Indicator, "Start Date") ~ "Start Date",
-                           str_detect(Indicator, "Rating Comments") ~ "Comments",
-                           str_detect(Indicator, "Financial Rating") ~ "Rating",
-                           str_detect(Indicator, "Programmatic Rating") ~ "Rating",
-                           TRUE ~ NA_character_
-          ),
-          value = value
-          
-        ) %>%
-        pivot_wider(names_from = type,
-                    values_from = value) %>%
-        mutate(period = paste0(format(as.Date(`Start Date`),"%b-%y"), 
-                               " to ", 
-                               format(as.Date(`End Date`), "%b-%y")),
-               .before = Comments) %>%
-        select(-c(`Start Date`, `End Date` ))
+      rating_data <- grant_data %>%
+        filter(class %in% c("Rating"))
       
+      rating <- if(nrow(rating_data) > 0) { 
+        rating_data %>%
+          select(period, Indicator, value) %>%
+          filter(gf_period %in% input$gf_period) %>%
+          select(-period) %>%
+          transmute(
+            Category = case_when(
+              str_detect(Indicator, "Financial") ~ "Financial",
+              str_detect(Indicator, "Programmatic") ~ "Programmatic",
+              TRUE ~ NA_character_
+            ),
+            type = case_when(
+              str_detect(Indicator, "End Date") ~ "End Date",
+              str_detect(Indicator, "Start Date") ~ "Start Date",
+              str_detect(Indicator, "Rating Comments") ~ "Comments",
+              str_detect(Indicator, "Financial Rating") ~ "Rating",
+              str_detect(Indicator, "Programmatic Rating") ~ "Rating",
+              TRUE ~ NA_character_
+            ),
+            value = value
+          ) %>%
+          pivot_wider(names_from = type, values_from = value) %>%
+          select(c(Category, Rating, Comments))
+      } else {
+        tibble(
+          Category = NA_character_,
+          Comments = NA_character_,
+          Rating = NA_character_,
+          period = NA_character_
+        ) 
+      }
+      
+      
+
       
       prog_rate <- rating %>% filter(Category == "Programmatic") %>% pull(Rating) %>%
         substr(1,1)
@@ -329,7 +336,7 @@ server <- function(input, output, session) {
         Rating = paste0(prog_rate, "-", fin_rate)
       )
       
-      rating_all <- bind_rows(rating, overall_rating)
+      rating_all <- bind_rows(rating)
       
       incProgress(1)
       
@@ -512,48 +519,111 @@ server <- function(input, output, session) {
       })
       
       
-      output$rating_table <- renderDT({
-        datatable(rating_all,
-                  options = list(
-                    dom = 't',
-                    paging = FALSE,
-                    searching = FALSE,
-                    colnames = NULL,
-                    rownames = FALSE,
-                    columnDefs = list(
-                      list(
-                        targets = c(3,4), 
-                        visible = FALSE
-                      ),
-                      list(
-                        targets = 2,
-                        createdCell = JS(
-                          "function(td, cellData, rowData, row, col) {
-                      $(td).attr('title', rowData[4]); // Comment column
-                     $(td).tooltip();
-                     }"
-                        )
-                      )
-                    )
-                  )
-        ) %>%
-          formatStyle(
-            'Rating',
-            backgroundColor = styleEqual(
-              c("A - 100+ %", "B - 90-99 %", "C - 60-89 %", "D - 30-59 %", "E <30 %",
-                "1 - Excellent, 95+ %", "2 - Good, 85-94 %", "3 - Moderate, 75-84 %", "4 - Poor, 65-74 %", "5 - Very Poor, <65 %"),
-              c("darkgreen", "lightgreen", "yellow", "orange", "red",
-                "darkgreen", "lightgreen", "yellow", "orange", "red")
-            ),
-            color = styleEqual(
-              c("A - 100+ %", "B - 90-99 %", "C - 60-89 %", "D - 30-59 %", "E <30 %",
-                "1 - Excellent, 95+ %", "2 - Good, 85-94 %", "3 - Moderate, 75-84 %", "4 - Poor, 65-74 %", "5 - Very Poor, <65 %"),
-              c("white", "black", "black", "black", "white",
-                "white", "black", "black", "black", "white")
-            )
-          )
+      
+      
+      
+      
+      output$grant_info_cards <- renderUI({
         
+        # Filter grant information based on the selected grant
+        grant_info <- grant_info %>%
+          filter(dataset_id == input$grant)
+        
+        if (nrow(grant_info) == 0) {
+          return(tags$p("No grant information available."))
+        }
+        
+        # Calculate % Committed and % Disbursed
+        percent_committed <- round((grant_info$committed_amount / grant_info$signed_amount) * 100, 1)
+        percent_disbursed <- round((grant_info$disbursed_amount / grant_info$signed_amount) * 100, 1)
+        
+        # Create card with updated headers and combined financial information
+        fluidRow(
+          # Card Header with Component, Grant Number, and Status
+          card(
+            card_header(
+              paste(grant_info$grant_number, "-", str_to_sentence(grant_info$status)), 
+              class = "bold-header"
+            ),
+            # Card Body with financial details and calculated percentages
+            fluidRow(
+              column(6, 
+                     tags$div(
+                       tags$p(tags$strong("Signed Amount:"), prettyNum(grant_info$signed_amount, big.mark = ",")),
+                       tags$p(tags$strong("Committed Amount:"), prettyNum(grant_info$committed_amount, big.mark = ","), 
+                              tags$span(paste0(" (", percent_committed, "%)"))),
+                       tags$p(tags$strong("Disbursed Amount:"), prettyNum(grant_info$disbursed_amount, big.mark = ","), 
+                              tags$span(paste0(" (", percent_disbursed, "%)")))
+                     )
+              ),
+              column(6, 
+                     output$rating_table <- renderDT({
+                       datatable(rating_all,
+                                 options = list(
+                                   dom = 't',
+                                   paging = FALSE,
+                                   searching = FALSE,
+                                   columnDefs = list(
+                                     list(
+                                       targets = 2, 
+                                       visible = FALSE
+                                     ),
+                                     list(
+                                       targets = 1,
+                                       createdCell = JS(
+                                         "function(td, cellData, rowData, row, col) {
+                      $(td).attr('title', rowData[2]); // Assuming Comment column is in index 2
+                      $(td).tooltip();
+                    }"
+                                       )
+                                     )
+                                   )
+                                 ),
+                                 rownames = FALSE,
+                                 colnames = NULL
+                       ) %>%
+                         formatStyle(
+                           'Rating',
+                           backgroundColor = styleEqual(
+                             c("A - 100+ %", "B - 90-99 %", "C - 60-89 %", "D - 30-59 %", "E <30 %",
+                               "1 - Excellent, 95+ %", "2 - Good, 85-94 %", "3 - Moderate, 75-84 %", "4 - Poor, 65-74 %", "5 - Very Poor, <65 %"),
+                             c("darkgreen", "lightgreen", "yellow", "orange", "red",
+                               "darkgreen", "lightgreen", "yellow", "orange", "red")
+                           ),
+                           color = styleEqual(
+                             c("A - 100+ %", "B - 90-99 %", "C - 60-89 %", "D - 30-59 %", "E <30 %",
+                               "1 - Excellent, 95+ %", "2 - Good, 85-94 %", "3 - Moderate, 75-84 %", "4 - Poor, 65-74 %", "5 - Very Poor, <65 %"),
+                             c("white", "black", "black", "black", "white",
+                               "white", "black", "black", "black", "white")
+                           )
+                         )
+                       
+                     })
+              )
+              
+            )
+          ),
+          
+          # Separate cards for Goal and Objectives
+          column(5, card(
+            card_header("Goals", class = "bold-header"),
+            tags$ul(
+              lapply(grant_info$goal_bullets[[1]], function(item) {
+                tags$li(item)
+              })
+            )
+          )),
+          column(7, card(
+            card_header("Objectives", class = "bold-header"),
+            tags$ul(
+              lapply(grant_info$objectives_bullets[[1]], function(item) {
+                tags$li(item)
+              })
+            )
+          ))
+        )
       })
+      
       
       
     })

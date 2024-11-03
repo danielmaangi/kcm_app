@@ -76,47 +76,19 @@ test_data <- pull_program_data(start_date = "2024-01-01", end_date = "2024-12-31
 
 
 
-rating <- test_data %>%
-  filter(class %in% c("Rating")) %>%
-  select(period, Indicator , value) %>%
-  filter(Indicator != "Comments") %>%
-  select(-period) %>%
-  transmute(
-    Category = case_when(str_detect(Indicator, "Financial") ~ "Financial",
-                         str_detect(Indicator, "Programmatic") ~ "Programmatic",
-                         TRUE ~ NA_character_
-    ),
-    type = case_when(str_detect(Indicator, "End Date") ~ "End Date",
-                     str_detect(Indicator, "Start Date") ~ "Start Date",
-                     str_detect(Indicator, "Start Date") ~ "Start Date",
-                     str_detect(Indicator, "Rating Comments") ~ "Comments",
-                     str_detect(Indicator, "Financial Rating") ~ "Rating",
-                     str_detect(Indicator, "Programmatic Rating") ~ "Rating",
-                     TRUE ~ NA_character_
-    ),
-    value = value
-    
-  ) %>%
-  pivot_wider(names_from = type,
-              values_from = value) %>%
-  mutate(period = paste0(format(as.Date(`Start Date`),"%b-%y"), 
-                         " to ", 
-                         format(as.Date(`End Date`), "%b-%y")),
-         .before = Comments) %>%
-  select(-c(`Start Date`, `End Date` ))
+# Global fund API
+library(httr)
+library(jsonlite)
+api_url <- "https://data.api.theglobalfund.org/allocations/cycles"
+response <- GET(api_url)
+if (status_code(response) == 200) {
+  # Proceed to parse the content
+} else {
+  stop("Failed to retrieve data: ", status_code(response))
+}
+content <- content(response, as = "text", encoding = "UTF-8")
+data <- fromJSON(content)
 
-
-prog_rate <- rating %>% filter(Category == "Programmatic") %>% pull(Rating) %>%
-  substr(1,1)
-fin_rate <- rating %>% filter(Category == "Financial") %>% pull(Rating) %>%
-  substr(1,1)
-
-overall_rating <- tibble(
-  Category = "Overall",
-  Rating = paste0(prog_rate, "-", fin_rate)
-)
-
-rating_all <- bind_rows(rating, overall_rating)
 
 
 
