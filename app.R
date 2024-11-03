@@ -78,7 +78,7 @@ ui <- page_sidebar(
                                  card(
                                    card_header("Figures in USD", class = "bold-header"),
                                    DTOutput("finance_table"),
-                                   textOutput("finance_legend")  # Added legend for Finance Table
+                                   
                                  )
                           ),
                           
@@ -98,8 +98,7 @@ ui <- page_sidebar(
                           column(7, 
                                  card(
                                    card_header("Figures in KES", class = "bold-header"),
-                                   DTOutput("cofin_table"),
-                                   textOutput("cofin_legend")  # Added legend for Co-finance Table
+                                   DTOutput("cofin_table")
                                  )
                           ),
                           
@@ -397,7 +396,7 @@ server <- function(input, output, session) {
                     ),
                     rownames = FALSE,
                     colnames = NULL,
-                    caption = "Source: KCM Dashboard"
+                    caption = "Legend: Red < 50%, Yellow 50 - 75 %, Green > 75%"
           ) %>%
             formatCurrency(
               columns = 'Result',     
@@ -463,7 +462,7 @@ server <- function(input, output, session) {
                     ),
                     rownames = FALSE,
                     colnames = NULL,
-                    caption = "Source: KCM Dashboard"
+                    caption = "Legend: Red < 50%, Yellow 50 - 75 %, Green > 75%"
           ) %>%
             formatCurrency(
               columns = 'Result',     
@@ -515,7 +514,7 @@ server <- function(input, output, session) {
       }
       
       output$cofin_legend <- renderText({
-        "Red: < 50%, Yellow: 50 - 75 %, Green: > 75%"
+        "Legend: Red: < 50%, Yellow: 50 - 75 %, Green: > 75%"
       })
       
       
@@ -542,18 +541,19 @@ server <- function(input, output, session) {
           # Card Header with Component, Grant Number, and Status
           card(
             card_header(
-              paste(grant_info$grant_number, "-", str_to_sentence(grant_info$status)), 
+              paste0(grant_info$grant_yoy), 
               class = "bold-header"
             ),
             # Card Body with financial details and calculated percentages
             fluidRow(
               column(6, 
                      tags$div(
-                       tags$p(tags$strong("Signed Amount:"), prettyNum(grant_info$signed_amount, big.mark = ",")),
-                       tags$p(tags$strong("Committed Amount:"), prettyNum(grant_info$committed_amount, big.mark = ","), 
+                       tags$p(tags$strong("Signed Amount (USD):"), prettyNum(grant_info$signed_amount, big.mark = ",")),
+                       tags$p(tags$strong("Committed Amount (USD):"), prettyNum(grant_info$committed_amount, big.mark = ","), 
                               tags$span(paste0(" (", percent_committed, "%)"))),
-                       tags$p(tags$strong("Disbursed Amount:"), prettyNum(grant_info$disbursed_amount, big.mark = ","), 
-                              tags$span(paste0(" (", percent_disbursed, "%)")))
+                       tags$p(tags$strong("Disbursed Amount (USD):"), prettyNum(grant_info$disbursed_amount, big.mark = ","), 
+                              tags$span(paste0(" (", percent_disbursed, "%)"))),
+                       tags$p(tags$strong("Rating:"), paste0(prog_rate, "-", fin_rate))
                      )
               ),
               column(6, 

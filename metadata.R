@@ -278,7 +278,8 @@ grants_data <- read_csv(grants_01) |>
                            grant_number == "KEN-T-AMREFPO6 2023-2025" ~ "SgPSOoSZ8Iz",
                            grant_number == "KEN-T-TNTPO6 2023-2025" ~ "Vg7RJh2mM35",
                            TRUE ~ NA_character_
-                           )
+                           ),
+    grant_yoy = str_extract(grant_number, "^[^P]+")
   ) %>%
   filter(
     status == "ACTIVE"
