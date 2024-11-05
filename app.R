@@ -113,6 +113,14 @@ ui <- page_sidebar(
                )
                
              )
+    ),
+    
+    tabPanel("Products", icon = icon("pills"),
+             tabsetPanel(
+               layout_columns(
+                 card(DTOutput("stock_table"))
+               )
+             )
     )
   )
 )
@@ -202,6 +210,11 @@ server <- function(input, output, session) {
         pivot_wider(names_from = "data",
                     values_from = "value",
                     values_fill = NA) %>%
+        mutate(
+          Target = if (!"Target" %in% names(.)) NA_real_ else Target,
+          Result = if (!"Result" %in% names(.)) NA_real_ else Result,
+          Comment = if (!"Comment" %in% names(.)) NA_character_ else Comment
+        ) %>%
         select(period, Indicator , fieldMask, type, Target, Result, Comment) %>%
         mutate(
           Percent = round(as.numeric(Result)*100/ as.numeric(Target),0),
@@ -233,16 +246,21 @@ server <- function(input, output, session) {
         filter(gf_period %in% input$gf_period) %>%
         select(-period) %>%
         mutate(value = as.numeric(value)) %>%
-        pivot_wider(names_from = Indicator,
-                    values_from = value) %>%
-        transmute(
-          `Cumulative Budget` = sum(`Cumulative Budget`,na.rm = T),
-          `Cumulative Expenditure` = sum(`Cumulative Funds Expensed by PR`, na.rm = T),
-          Commitments = sum(Commitments, na.rm = T),
-          Obligations = sum(Obligations, na.rm = T),
-          Variance = sum(`Cumulative Budget`,na.rm = T) - sum(`Cumulative Funds Expensed by PR`, na.rm = T),
-          `Absorption Rate` = round(`Cumulative Funds Expensed by PR` / `Cumulative Budget` * 100,1)
+        pivot_wider(names_from = Indicator, values_from = value) %>%
+        mutate(
+          `Cumulative Budget` = if (!"Cumulative Budget" %in% names(.)) NA_real_ else `Cumulative Budget`,
+          `Cumulative Funds Expensed by PR` = if (!"Cumulative Funds Expensed by PR" %in% names(.)) NA_real_ else `Cumulative Funds Expensed by PR`,
+          Commitments = if (!"Commitments" %in% names(.)) NA_real_ else Commitments,
+          Obligations = if (!"Obligations" %in% names(.)) NA_real_ else Obligations
         ) %>%
+        transmute(
+          `Cumulative Budget` = sum(`Cumulative Budget`, na.rm = TRUE),
+          `Cumulative Expenditure` = sum(`Cumulative Funds Expensed by PR`, na.rm = TRUE),
+          Commitments = sum(Commitments, na.rm = TRUE),
+          Obligations = sum(Obligations, na.rm = TRUE),
+          Variance = sum(`Cumulative Budget`, na.rm = TRUE) - sum(`Cumulative Funds Expensed by PR`, na.rm = TRUE),
+          `Absorption Rate` = round(`Cumulative Funds Expensed by PR` / `Cumulative Budget` * 100, 1)
+        )%>%
         pivot_longer(everything(),
                      names_to = "Indicator",
                      values_to = "Result") %>%
@@ -312,6 +330,10 @@ server <- function(input, output, session) {
             value = value
           ) %>%
           pivot_wider(names_from = type, values_from = value) %>%
+          mutate(
+            Rating = if (!"Rating" %in% names(.)) NA_character_ else Rating,
+            Comments = if (!"Comments" %in% names(.)) NA_character_ else Comments
+          ) %>%
           select(c(Category, Rating, Comments))
       } else {
         tibble(
@@ -322,8 +344,6 @@ server <- function(input, output, session) {
         ) 
       }
       
-      
-
       
       prog_rate <- rating %>% filter(Category == "Programmatic") %>% pull(Rating) %>%
         substr(1,1)
@@ -336,6 +356,46 @@ server <- function(input, output, session) {
       )
       
       rating_all <- bind_rows(rating)
+      
+      # +*+*+*+*+*+*+*+*+*+*+*+*+*+*+*++*+*+*+**++
+      products_data <- grant_data %>%
+        filter(gf_period %in% input$gf_period) %>%
+        filter(class %in% c("Products")) %>%
+        select(period, Indicator , value) %>%
+        separate(Indicator, into = c("product", "metric"), sep = " (?=[^ ]+$)", extra = "merge", fill = "right") %>%
+        mutate(
+          product = str_replace_all(product, "(?i)\\b(Ending|Under|SOR)\\b", "")
+        ) %>%
+        mutate(
+          product = str_trim(str_replace(product, " -$", ""))  
+        ) %>%
+        pivot_wider(names_from = metric,
+                    values_from = value) %>%
+        transmute(
+          Product = product,
+          Balance = if(!"Balance" %in% names(.)) NA_character_ else Balance,
+          Consumption = if(!"AMC" %in% names(.)) NA_character_ else AMC,
+          Procured = if(!"Procurement" %in% names(.)) NA_character_ else Procurement,
+          `SOR Numerator` = if(!"Numerator" %in% names(.)) NA_character_ else Numerator,
+          `SOR Denominator` = if(!"Denominator" %in% names(.)) NA_character_ else Denominator,
+          `Stock out` = round(as.numeric(`SOR Numerator`) / as.numeric(`SOR Denominator`),1),
+          Comments = if(!"Comments" %in% names(.)) NA_character_ else Comments
+        ) %>%
+        mutate(across(
+          .cols = where(is.character) & !c("Product", "Comments"), 
+          .fns = as.numeric,                                        
+          .names = "{.col}"                                         
+        )) %>%
+        mutate(
+          `MoS` = round(Balance / Consumption, 1),
+          .before = Procured 
+        ) %>%
+        mutate(
+          across(c(Balance, Consumption, Procured), 
+                 ~ prettyNum(as.numeric(.), big.mark = ","))
+        ) %>%
+        select(-c(`SOR Numerator`, `SOR Denominator`))
+      
       
       incProgress(1)
       
@@ -521,10 +581,7 @@ server <- function(input, output, session) {
       
       
       
-      
       output$grant_info_cards <- renderUI({
-        
-        # Filter grant information based on the selected grant
         grant_info <- grant_info %>%
           filter(dataset_id == input$grant)
         
@@ -532,19 +589,15 @@ server <- function(input, output, session) {
           return(tags$p("No grant information available."))
         }
         
-        # Calculate % Committed and % Disbursed
         percent_committed <- round((grant_info$committed_amount / grant_info$signed_amount) * 100, 1)
         percent_disbursed <- round((grant_info$disbursed_amount / grant_info$signed_amount) * 100, 1)
         
-        # Create card with updated headers and combined financial information
         fluidRow(
-          # Card Header with Component, Grant Number, and Status
           card(
             card_header(
               paste0(grant_info$grant_yoy), 
               class = "bold-header"
             ),
-            # Card Body with financial details and calculated percentages
             fluidRow(
               column(6, 
                      tags$div(
@@ -604,7 +657,6 @@ server <- function(input, output, session) {
             )
           ),
           
-          # Separate cards for Goal and Objectives
           column(5, card(
             card_header("Goals", class = "bold-header"),
             tags$ul(
@@ -623,6 +675,63 @@ server <- function(input, output, session) {
           ))
         )
       })
+      
+      
+      # Render products table
+      if (!is.null(products_data)) {
+        output$stock_table <- renderDT({
+          datatable(products_data,
+                    options = list(
+                      pageLength = 5,
+                      columnDefs = list(
+                        list(
+                          targets = 7, 
+                          visible = FALSE
+                        ),
+                        list(
+                          targets = 4,
+                          createdCell = JS(
+                            "function(td, cellData, rowData, row, col) {
+                              $(td).attr('title', rowData[7]); // Comment column
+                             $(td).tooltip();
+                             }"
+                          )
+                        )
+                      )
+                    )
+          ) %>%
+            formatStyle(
+              'MoS',
+              backgroundColor = styleInterval(
+                c(1, 4, 10),  
+                c('red','green', 'yellow', 'red')  
+              ),
+              color = styleInterval(
+                c(1, 4, 10),  
+                c('black', 'white', 'black', 'white')  
+              )
+            ) %>%
+            formatPercentage(
+              columns = 6,
+              digits = 0
+            ) %>%
+            formatStyle(
+              columns = 6,
+              backgroundColor = styleInterval(
+                c(0.50, 0.75),  
+                c('green', 'yellow','red')  
+              ),
+              color = styleInterval(
+                c(0.50, 0.75),  
+                c('white', 'black', 'white')  
+              )
+            )
+        })
+      } else {
+        output$stock_table <- renderDT({
+          datatable(data.frame(message = "No data available or request failed."))
+        })
+      }
       
       
       

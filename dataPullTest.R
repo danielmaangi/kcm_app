@@ -66,7 +66,7 @@ des <- fread("metadata/dataElements.txt")
 
 
 test_data <- pull_program_data(start_date = "2024-01-01", end_date = "2024-12-31",
-                               grant = "Vg7RJh2mM35",
+                               grant = "XEUXTIGkU8H",
                                orgunit = orgunit, 
                                base_url = base_url,
                                username = username, password = password) %>%
@@ -76,7 +76,88 @@ test_data <- pull_program_data(start_date = "2024-01-01", end_date = "2024-12-31
 
 
 
-# Global fund API
+
+products_data <- test_data %>%
+  filter(class %in% c("Products")) %>%
+  select(period, Indicator , value) %>%
+  separate(Indicator, into = c("product", "metric"), sep = " (?=[^ ]+$)", extra = "merge", fill = "right") %>%
+  mutate(
+    product = str_replace_all(product, "(?i)\\b(Ending|Under|SOR)\\b", "")
+  ) %>%
+  mutate(
+    product = str_trim(str_replace(product, " -$", ""))  
+  ) %>%
+  pivot_wider(names_from = metric,
+              values_from = value) %>%
+  transmute(
+    Product = product,
+    Balance = if(!"Balance" %in% names(.)) NA_character_ else Balance,
+    Consumption = if(!"AMC" %in% names(.)) NA_character_ else AMC,
+    Procured = if(!"Procurement" %in% names(.)) NA_character_ else Procurement,
+    `SOR Numerator` = if(!"Numerator" %in% names(.)) NA_character_ else Numerator,
+    `SOR Denominator` = if(!"Denominator" %in% names(.)) NA_character_ else Denominator,
+    `Stock out` = round(as.numeric(`SOR Numerator`) / as.numeric(`SOR Denominator`),1),
+    Comments = if(!"Comments" %in% names(.)) NA_character_ else Comments
+  ) %>%
+  mutate(across(
+    .cols = where(is.character) & !c("Product", "Comments"), 
+    .fns = as.numeric,                                        
+    .names = "{.col}"                                         
+  )) %>%
+  mutate(
+    `MoS` = round(Balance / Consumption, 1),
+    .before = Procured 
+  ) %>%
+  mutate(
+    across(c(Balance, Consumption, Procured), 
+           ~ prettyNum(as.numeric(.), big.mark = ","))
+  ) %>%
+  select(-c(`SOR Numerator`, `SOR Denominator`))
+
+
+
+
+products_data <- test_data %>%
+  filter(period == "2024Q3") %>%
+  filter(class %in% c("Products")) %>%
+  select(period, Indicator , value) %>%
+  transmute(
+    metric  = case_when(
+      str_detect(str_to_lower(Indicator), "ending balance") ~ "Stock on hand",
+      str_detect(str_to_lower(Indicator), "amc") ~ "Average Monthly Consumption",
+      str_detect(str_to_lower(Indicator), "under procurement") ~ "Under Procurement",
+      str_detect(str_to_lower(Indicator), "sor numerator") ~ "SOR Numerator",
+      str_detect(str_to_lower(Indicator), "sor denominator") ~ "SOR Denominator",
+      str_detect(str_to_lower(Indicator), "comments") ~ "Comments",
+      TRUE ~ NA_character_
+    ),
+    value = value
+  ) %>%
+  pivot_wider(names_from = metric,
+              values_from = value)
+
+# Define the list of known metric keywords to aid separation
+metric_keywords <- c("Ending Balance", "AMC", "Under Procurement", "SOR Numerator", "SOR Denominator", "Comments")
+
+# Use regex to split based on the first appearance of any metric keyword
+products_data <- test_data %>%
+  filter(period == "2024Q3") %>%
+  filter(class %in% c("Products")) %>%
+  select(period, Indicator , value) %>%
+  separate(Indicator, into = c("product", "metric"), 
+           sep = paste0("(?i)\\b(", paste(metric_keywords, collapse = "|"), ")\\b"), 
+           extra = "merge", fill = "right") %>%
+  mutate(
+    metric = str_trim(metric),
+    product = str_trim(product)
+  )
+
+products_data
+
+
+
+
+ # Global fund API
 library(httr)
 library(jsonlite)
 api_url <- "https://data.api.theglobalfund.org/allocations/cycles"
