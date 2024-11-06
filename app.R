@@ -6,18 +6,13 @@ source("config/credentials.R")
 thematic_shiny()
 
 ui <- page_sidebar(
-  theme = bs_theme(bootswatch = "cosmo",  # Use a more vibrant theme
+  theme = bs_theme(bootswatch = "cosmo", 
                    base_font = font_google("Space Mono"),
                    code_font = font_google("Space Mono")),
-  title = "GC7 Dashboard",
   tags$style(HTML("
-    .navbar-brand {
-      background-color: #FF5733 !important;
-      color: white !important;
-    }
-    .navbar {
-      background-color: #FF5733 !important;
-      color: white !important;
+    /* Remove top bar styling */
+    .navbar, .navbar-brand {
+      display: none !important;
     }
     .nav-tabs > li > a:hover {
       background-color: #FF5733 !important;
@@ -59,30 +54,25 @@ ui <- page_sidebar(
     tabPanel("Grant overview", icon = icon("circle-info"),
              tabsetPanel(
                layout_columns(
-                 card(uiOutput("grant_info_cards")
-                 )
+                 card(uiOutput("grant_info_cards"))
                )
              )
     ),
     
     tabPanel("Programmes", icon = icon("suitcase-medical"),
-             uiOutput("prog_dynamic_tab")  # Placeholder for the dynamically generated tab
+             uiOutput("prog_dynamic_tab")
     ),
     
     tabPanel("Finance", icon = icon("sack-dollar"),
              tabsetPanel(
                tabPanel("Global Funds", tags$div(style = "margin-top: 20px;"),
                         fluidRow(
-                          # Card 1: Finance Table (70% width)
                           column(7, 
                                  card(
                                    card_header("Figures in USD", class = "bold-header"),
-                                   DTOutput("finance_table"),
-                                   
+                                   DTOutput("finance_table")
                                  )
                           ),
-                          
-                          # Card 2: Comments (30% width)
                           column(5,
                                  card(
                                    card_header("Context", class = "bold-header"),
@@ -91,18 +81,14 @@ ui <- page_sidebar(
                           )
                         )
                ),
-               
                tabPanel("Counterpart Funds", tags$div(style = "margin-top: 20px;"),
                         fluidRow(
-                          # Card 1: Finance Table (70% width)
                           column(7, 
                                  card(
                                    card_header("Figures in KES", class = "bold-header"),
                                    DTOutput("cofin_table")
                                  )
                           ),
-                          
-                          # Card 2: Comments (30% width)
                           column(5,
                                  card(
                                    card_header("Context", class = "bold-header"),
@@ -111,7 +97,6 @@ ui <- page_sidebar(
                           )
                         )
                )
-               
              )
     ),
     
@@ -124,6 +109,7 @@ ui <- page_sidebar(
     )
   )
 )
+
 
 server <- function(input, output, session) {
   
