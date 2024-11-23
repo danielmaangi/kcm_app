@@ -9,23 +9,62 @@ ui <- page_sidebar(
   theme = bs_theme(bootswatch = "cosmo", 
                    base_font = font_google("Space Mono"),
                    code_font = font_google("Space Mono")),
+  
   tags$style(HTML("
-    /* Remove top bar styling */
-    .navbar, .navbar-brand {
-      display: none !important;
+    /* General Background and Layout Styling */
+    body {
+      background-color: #f7f9fc !important;
     }
-    .nav-tabs > li > a:hover {
-      background-color: #FF5733 !important;
+    
+    /* Sidebar Styling */
+    .sidebar {
+      background-color: #343a40 !important;
       color: white !important;
+      padding: 20px;
     }
-    .nav-tabs > li.active > a, 
-    .nav-tabs > li.active > a:focus, 
+    
+    /* Sidebar Inputs */
+    .sidebar .form-group label {
+      color: #f8f9fa;
+      font-weight: bold;
+    }
+    
+    /* Button Styling */
+    #refresh {
+      background-color: #ff5733 !important;
+      border-color: #ff5733 !important;
+      color: white !important;
+      margin-top: 15px;
+    }
+    
+    /* Card Styling */
+    .card {
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      margin-bottom: 20px;
+      background-color: white;
+      padding: 15px;
+    }
+    
+    /* Tab Panel Styling */
+    .nav-tabs > li > a {
+      color: #495057;
+    }
+    
+    .nav-tabs > li > a:hover,
+    .nav-tabs > li.active > a,
+    .nav-tabs > li.active > a:focus,
     .nav-tabs > li.active > a:hover {
-      background-color: #FF5733 !important;
+      background-color: #ff5733 !important;
       color: white !important;
+      border-radius: 5px;
     }
+    
+    /* Bold Header Styling */
     .bold-header {
-      font-weight: bold !important;
+      font-weight: bold;
+      color: #343a40;
+      text-transform: uppercase;
     }
   ")),
   
@@ -40,7 +79,7 @@ ui <- page_sidebar(
                 selected = max(gf_period),
                 multiple = FALSE),
     
-    selectInput("programme_indicator", "Programme indicators",
+    selectInput("programme_indicator", "Indicator",
                 choices = programme_indicators,
                 selected = "Coverage",
                 multiple = FALSE),
@@ -51,7 +90,7 @@ ui <- page_sidebar(
   ),
   
   tabsetPanel(
-    tabPanel("Grant overview", icon = icon("circle-info"),
+    tabPanel("Grant overview", icon = icon("circle-info", style = "color: #ff5733;"),
              tabsetPanel(
                layout_columns(
                  card(uiOutput("grant_info_cards"))
@@ -59,11 +98,11 @@ ui <- page_sidebar(
              )
     ),
     
-    tabPanel("Programmes", icon = icon("suitcase-medical"),
+    tabPanel("Programmes", icon = icon("suitcase-medical", style = "color: #ff5733;"),
              uiOutput("prog_dynamic_tab")
     ),
     
-    tabPanel("Finance", icon = icon("sack-dollar"),
+    tabPanel("Finance", icon = icon("sack-dollar", style = "color: #ff5733;"),
              tabsetPanel(
                tabPanel("Global Funds", tags$div(style = "margin-top: 20px;"),
                         fluidRow(
@@ -100,7 +139,7 @@ ui <- page_sidebar(
              )
     ),
     
-    tabPanel("Products", icon = icon("pills"),
+    tabPanel("Products", icon = icon("pills", style = "color: #ff5733;"),
              tabsetPanel(
                layout_columns(
                  card(DTOutput("stock_table"))
@@ -184,7 +223,12 @@ server <- function(input, output, session) {
       output$error_message <- renderText("")
       
       grant_data <- pull_program_data() %>%
-        as.data.frame() |>
+        as.data.frame() %>%
+        mutate(
+          dataElement = if (!"dataElement" %in% names(.)) NA_character_ else dataElement,
+          period = if (!"period" %in% names(.)) NA_character_ else period,
+          value = if (!"value" %in% names(.)) NA_character_ else value
+        ) %>%
         left_join(des, by = c("dataElement" = "id")) %>%
         left_join(all_periods, by = c("period" = "quarter"))
       
@@ -275,6 +319,12 @@ server <- function(input, output, session) {
           mutate(value = as.numeric(value)) %>%
           pivot_wider(names_from = Indicator,
                       values_from = value) %>%
+          mutate(
+            `Cumulative budget` = if (!"Cumulative budget" %in% names(.)) NA_real_ else `Cumulative budget`,
+            `Cumulative expenditure` = if (!"Cumulative expenditure" %in% names(.)) NA_real_ else `Cumulative expenditure`,
+            Commitments = if (!"Commitments" %in% names(.)) NA_real_ else Commitments,
+            Obligations = if (!"Obligations" %in% names(.)) NA_real_ else Obligations
+          ) %>%
           transmute(
             `Cumulative Budget` = sum(`Cumulative budget`,na.rm = T),
             `Cumulative Expenditure` = sum(`Cumulative expenditure`, na.rm = T),
@@ -378,7 +428,7 @@ server <- function(input, output, session) {
         ) %>%
         mutate(
           across(c(Balance, Consumption, Procured), 
-                 ~ prettyNum(as.numeric(.), big.mark = ","))
+                 ~ prettyNum(as.numeric(.), big.mark = ",", scientific = F))
         ) %>%
         select(-c(`SOR Numerator`, `SOR Denominator`))
       
@@ -668,7 +718,7 @@ server <- function(input, output, session) {
         output$stock_table <- renderDT({
           datatable(products_data,
                     options = list(
-                      pageLength = 5,
+                      pageLength = 10,
                       columnDefs = list(
                         list(
                           targets = 7, 
