@@ -177,7 +177,35 @@ data <- fromJSON(content)
 
 
 
-
+prog_data <- grant_data %>%
+  filter(class %in% c("Program", "PSEAH")) %>%
+  filter(!is.na(data)) %>%
+  filter(!is.na(type)) %>%
+  select(period, Indicator , fieldMask, type, data, value) %>%
+  pivot_wider(names_from = "data",
+              values_from = "value",
+              values_fill = NA) %>%
+  mutate(
+    Target = if (!"Target" %in% names(.)) NA_real_ else Target,
+    Result = if (!"Result" %in% names(.)) NA_real_ else Result,
+    Comment = if (!"Comment" %in% names(.)) NA_character_ else Comment
+  ) %>%
+  select(period, Indicator , fieldMask, type, Target, Result, Comment) %>%
+  mutate(
+    Percent = round(as.numeric(Result)*100/ as.numeric(Target),0),
+    .before = Comment
+  ) %>%
+  mutate(Percent = ifelse(fieldMask == "Inverse", 
+                          round(10000 / Percent,0), 
+                          Percent)) %>%
+  select(-fieldMask) %>%
+  mutate(
+    across(c(Target, Result, Percent), 
+           ~ prettyNum(as.numeric(.), big.mark = ","))
+  ) %>%
+  select(-type) %>%
+  filter(gf_period %in% input$gf_period) %>%
+  select(-period)
 
 
 

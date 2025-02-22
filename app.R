@@ -74,9 +74,9 @@ ui <- page_sidebar(
                 selected = "WFU6M2XN4W4",
                 multiple = FALSE),
     
-    selectInput("gf_period", "Period",
-                choices = gf_period,
-                selected = max(gf_period),
+    selectInput("select_period", "Period",
+                choices = data_periods,
+                selected = "P2",
                 multiple = FALSE),
     
     selectInput("programme_indicator", "Indicator",
@@ -230,7 +230,8 @@ server <- function(input, output, session) {
           value = if (!"value" %in% names(.)) NA_character_ else value
         ) %>%
         left_join(des, by = c("dataElement" = "id")) %>%
-        left_join(all_periods, by = c("period" = "quarter"))
+        left_join(all_periods, by = c("period" = "quarter")) %>%
+        filter(grant_periods == input$select_period)
       
       prog_data <- grant_data %>%
         filter(class %in% c("Program", "PSEAH")) %>%
@@ -260,7 +261,6 @@ server <- function(input, output, session) {
         ) %>%
         filter(type == input$programme_indicator)%>%
         select(-type) %>%
-        filter(gf_period %in% input$gf_period) %>%
         select(-period)
       
       fin_data <- grant_data %>%
@@ -273,7 +273,6 @@ server <- function(input, output, session) {
       
       fin_summary <- fin_data %>%
         filter(Indicator != "Comments") %>%
-        filter(gf_period %in% input$gf_period) %>%
         select(-period) %>%
         mutate(value = as.numeric(value)) %>%
         pivot_wider(names_from = Indicator, values_from = value) %>%
@@ -314,7 +313,6 @@ server <- function(input, output, session) {
         )
       } else { cofin_data %>%
           filter(Indicator != "Comments") %>%
-          filter(gf_period %in% input$gf_period) %>%
           select(-period) %>%
           mutate(value = as.numeric(value)) %>%
           pivot_wider(names_from = Indicator,
@@ -347,7 +345,6 @@ server <- function(input, output, session) {
       rating <- if(nrow(rating_data) > 0) { 
         rating_data %>%
           select(period, Indicator, value) %>%
-          filter(gf_period %in% input$gf_period) %>%
           select(-period) %>%
           transmute(
             Category = case_when(
@@ -395,7 +392,6 @@ server <- function(input, output, session) {
       
       # +*+*+*+*+*+*+*+*+*+*+*+*+*+*+*++*+*+*+**++
       products_data <- grant_data %>%
-        filter(gf_period %in% input$gf_period) %>%
         filter(class %in% c("Products")) %>%
         select(period, Indicator , value) %>%
         separate(Indicator, into = c("product", "metric"), sep = " (?=[^ ]+$)", extra = "merge", fill = "right") %>%

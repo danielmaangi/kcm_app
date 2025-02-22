@@ -24,7 +24,7 @@ library(bslib)
 library(gt)
 
 # renv::remove("datimutils")
-# renv::install("pepfar-datim/datimutils")
+# renv::install("danielmaangi/datimutils")
 # restart session
 library(datimutils)
 
