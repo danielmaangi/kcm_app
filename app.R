@@ -18,14 +18,14 @@ ui <- page_sidebar(
     
     /* Sidebar Styling */
     .sidebar {
-      background-color: #343a40 !important;
+      background-color: #F5F5DC !important;
       color: white !important;
       padding: 20px;
     }
     
     /* Sidebar Inputs */
     .sidebar .form-group label {
-      color: #f8f9fa;
+      color: red;
       font-weight: bold;
     }
     
