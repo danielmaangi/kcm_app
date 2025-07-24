@@ -223,14 +223,19 @@ tb_tnt_gc7 <- datimutils::getMetadata("dataElements?filter=dataSetElements.dataS
                         TRUE ~ "No")
   )
 
-
 # Save all
 # ------------------------
-dataElements <- bind_rows(hiv_krcs_gc7, hiv_tnt_gc7, malaria_amref_gc7, malaria_tnt_gc7, tb_amref_gc7, tb_tnt_gc7) %>%
+dataElements <- bind_rows(hiv_krcs_gc7, hiv_tnt_gc7, malaria_amref_gc7, malaria_tnt_gc7, 
+                          tb_amref_gc7, 
+                          tb_tnt_gc7) %>%
   rename(Indicator = description) %>%
   mutate(
     Indicator = case_when(class %in% c("Finance", "Rating") ~ str_replace(Indicator, "PR ", ""),
                           TRUE ~ Indicator)
+  ) %>%
+  mutate(
+    type = case_when(str_detect(name, "RSSH") ~ "RSSH",
+                     TRUE ~ type),
   )
 
 fwrite(dataElements, "metadata/dataElements.txt")

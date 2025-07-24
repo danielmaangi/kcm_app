@@ -5,7 +5,7 @@ source("config/credentials.R")
 
 thematic_shiny()
 
-ui <- page_sidebar(
+ui <- bslib::page_sidebar(
   theme = bs_theme(bootswatch = "cosmo", 
                    base_font = font_google("Space Mono"),
                    code_font = font_google("Space Mono")),
@@ -17,14 +17,14 @@ ui <- page_sidebar(
     }
     
     /* Sidebar Styling */
-    .sidebar {
+    .bslib-sidebar {
       background-color: #F5F5DC !important;
       color: white !important;
       padding: 20px;
     }
     
     /* Sidebar Inputs */
-    .sidebar .form-group label {
+    .bslib-sidebar .form-group label {
       color: red;
       font-weight: bold;
     }
@@ -66,6 +66,45 @@ ui <- page_sidebar(
       color: #343a40;
       text-transform: uppercase;
     }
+    
+    /* Print Media Styling */
+    @media print {
+      .bslib-sidebar {
+        display: none !important;
+      }
+      .main-content {
+        width: 100% !important;
+        overflow: visible !important;
+      }
+      #print {
+        display: none !important;
+      }
+      body {
+        margin: 1cm;
+      }
+      .dataTable {
+        width: 100% !important;
+        font-size: 10pt !important;
+      }
+      .card, .tabPanel {
+        page-break-inside: avoid;
+      }
+      * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+    
+    /* Print Button Styling */
+    .btn-print {
+      background-color: gray !important;
+      border-color: #ff5733 !important;
+      color: white !important;
+      font-weight: bold;
+      padding: 10px 20px;
+      margin: 10px 0;
+      border-radius: 5px;
+    }
   ")),
   
   sidebar = sidebar(
@@ -86,72 +125,100 @@ ui <- page_sidebar(
     
     dateInput("start_date", "Start Date", value = Sys.Date() - 1100),
     dateInput("end_date", "End Date", value = Sys.Date()),
-    actionButton("refresh", "Refresh", icon = icon("arrows-rotate"))
+    actionButton("refresh", "Refresh", icon = icon("arrows-rotate")),
+    
   ),
   
-  tabsetPanel(
-    tabPanel("Grant overview", icon = icon("circle-info", style = "color: #ff5733;"),
-             tabsetPanel(
-               layout_columns(
-                 card(uiOutput("grant_info_cards"))
-               )
-             )
-    ),
-    
-    tabPanel("Programmes", icon = icon("suitcase-medical", style = "color: #ff5733;"),
-             uiOutput("prog_dynamic_tab")
-    ),
-    
-    tabPanel("Finance", icon = icon("sack-dollar", style = "color: #ff5733;"),
-             tabsetPanel(
-               tabPanel("Global Funds", tags$div(style = "margin-top: 20px;"),
-                        fluidRow(
-                          column(7, 
-                                 card(
-                                   card_header("Figures in USD", class = "bold-header"),
-                                   DTOutput("finance_table")
-                                 )
-                          ),
-                          column(5,
-                                 card(
-                                   card_header("Context", class = "bold-header"),
-                                   textOutput("finance_comments")
-                                 )
-                          )
-                        )
-               ),
-               tabPanel("Counterpart Funds", tags$div(style = "margin-top: 20px;"),
-                        fluidRow(
-                          column(7, 
-                                 card(
-                                   card_header("Figures in KES", class = "bold-header"),
-                                   DTOutput("cofin_table")
-                                 )
-                          ),
-                          column(5,
-                                 card(
-                                   card_header("Context", class = "bold-header"),
-                                   textOutput("cofin_comments")
-                                 )
-                          )
-                        )
-               )
-             )
-    ),
-    
-    tabPanel("Products", icon = icon("pills", style = "color: #ff5733;"),
-             tabsetPanel(
-               layout_columns(
-                 card(DTOutput("stock_table"))
-               )
-             )
-    )
-  )
+  div(class = "main-content",
+      
+      actionButton("print", "Save as PDF", icon = icon("print"), class = "btn-print"),
+      
+      tabsetPanel(
+        tabPanel("Grant overview", icon = icon("circle-info", style = "color: #ff5733;"),
+                 tabsetPanel(
+                   layout_columns(
+                     card(uiOutput("grant_info_cards"))
+                   )
+                 )
+        ),
+        
+        tabPanel("Programmes", icon = icon("suitcase-medical", style = "color: #ff5733;"),
+                 uiOutput("prog_dynamic_tab")
+        ),
+        
+        tabPanel("Finance", icon = icon("sack-dollar", style = "color: #ff5733;"),
+                 tabsetPanel(
+                   tabPanel("Main Grant", tags$div(style = "margin-top: 20px;"),
+                            fluidRow(
+                              column(7, 
+                                     card(
+                                       card_header("Figures in USD", class = "bold-header"),
+                                       DTOutput("finance_table")
+                                     )
+                              ),
+                              column(5,
+                                     card(
+                                       card_header("Context", class = "bold-header"),
+                                       textOutput("finance_comments")
+                                     )
+                              )
+                            )
+                   ),
+                   tabPanel("RSSH Grant", tags$div(style = "margin-top: 20px;"),
+                            fluidRow(
+                              column(7, 
+                                     card(
+                                       card_header("Figures in USD", class = "bold-header"),
+                                       DTOutput("finance_table_rssh")
+                                     )
+                              ),
+                              column(5,
+                                     card(
+                                       card_header("Context", class = "bold-header"),
+                                       textOutput("finance_comments_rssh")
+                                     )
+                              )
+                            )
+                   ),
+                   tabPanel("Co-financing", tags$div(style = "margin-top: 20px;"),
+                            fluidRow(
+                              column(7, 
+                                     card(
+                                       card_header("Figures in KES", class = "bold-header"),
+                                       DTOutput("cofin_table")
+                                     )
+                              ),
+                              column(5,
+                                     card(
+                                       card_header("Context", class = "bold-header"),
+                                       textOutput("cofin_comments")
+                                     )
+                              )
+                            )
+                   )
+                 )
+        ),
+        
+        tabPanel("Products", icon = icon("pills", style = "color: #ff5733;"),
+                 tabsetPanel(
+                   layout_columns(
+                     card(DTOutput("stock_table"))
+                   )
+                 )
+        )
+      )
+  ),
+  
+  tags$script(HTML("
+    $(document).on('click', '#print', function() {
+      window.print();
+    });
+  "))
 )
 
-
 server <- function(input, output, session) {
-  
+  # [Existing server code remains unchanged]
+  # Including all reactive expressions, observers, and output renderings as provided originally.
   refresh_trigger <- reactiveVal(FALSE)
   
   output$prog_dynamic_tab <- renderUI({
@@ -263,8 +330,10 @@ server <- function(input, output, session) {
         select(-type) %>%
         select(-period)
       
+      ## Finance overall      
       fin_data <- grant_data %>%
         filter(class %in% c("Finance")) %>%
+        filter(!grepl("RSSH", name)) %>%
         select(period, Indicator , value)
       
       finance_comments <- fin_data %>%
@@ -296,10 +365,112 @@ server <- function(input, output, session) {
         mutate(res_col = case_when(Indicator == "Absorption Rate" ~ as.numeric(Result), 
                                    TRUE ~ NA_real_))
       
+      # RSSH Finance Data Processing
+      fin_data_rssh <- grant_data %>%
+        filter(class %in% c("Finance")) %>%
+        filter(grepl("RSSH", name)) %>%
+        select(period, Indicator, value)
+      
+      finance_comments_rssh <- fin_data_rssh %>%
+        filter(Indicator == "Comments") %>%
+        pull(value)
+      
+      fin_summary_rssh <- fin_data_rssh %>%
+        filter(Indicator != "Comments") %>%
+        select(-period) %>%
+        mutate(value = as.numeric(value)) %>%
+        pivot_wider(names_from = Indicator, values_from = value) %>%
+        mutate(
+          `Cumulative Budget` = if (!"Cumulative Budget" %in% names(.)) NA_real_ else `Cumulative Budget`,
+          `Cumulative Funds Expensed by PR` = if (!"Cumulative Funds Expensed by PR" %in% names(.)) NA_real_ else `Cumulative Funds Expensed by PR`,
+          Commitments = if (!"Commitments" %in% names(.)) NA_real_ else Commitments,
+          Obligations = if (!"Obligations" %in% names(.)) NA_real_ else Obligations
+        ) %>%
+        transmute(
+          `Cumulative Budget` = sum(`Cumulative Budget`, na.rm = TRUE),
+          `Cumulative Expenditure` = sum(`Cumulative Funds Expensed by PR`, na.rm = TRUE),
+          Commitments = sum(Commitments, na.rm = TRUE),
+          Obligations = sum(Obligations, na.rm = TRUE),
+          Variance = sum(`Cumulative Budget`, na.rm = TRUE) - sum(`Cumulative Funds Expensed by PR`, na.rm = TRUE),
+          `Absorption Rate` = round(`Cumulative Funds Expensed by PR` / `Cumulative Budget` * 100, 1)
+        ) %>%
+        pivot_longer(everything(),
+                     names_to = "Indicator",
+                     values_to = "Result") %>%
+        mutate(res_col = case_when(Indicator == "Absorption Rate" ~ as.numeric(Result), 
+                                   TRUE ~ NA_real_))
+      
+      # Render RSSH Finance Table
+      output$finance_table_rssh <- renderDT({
+        if (sum(fin_summary_rssh$Result, na.rm = TRUE) > 0) {
+          datatable(fin_summary_rssh,
+                    options = list(
+                      pageLength = nrow(fin_summary_rssh),
+                      paging = FALSE,
+                      searching = FALSE,
+                      info = FALSE,
+                      dom = 't',
+                      autoWidth = TRUE,
+                      columnDefs = list(list(
+                        targets = 2,  
+                        visible = FALSE
+                      ))
+                    ),
+                    rownames = FALSE,
+                    colnames = NULL,
+                    caption = "Legend: Red < 50%, Yellow 50 - 75 %, Green > 75%"
+          ) %>%
+            formatCurrency(
+              columns = 'Result',     
+              currency = "USD ",         
+              interval = 3,           
+              mark = ",",             
+              digits = 2,             
+              dec.mark = ".",         
+              before = TRUE,          
+              rows = which(fin_summary_rssh$Indicator != "Absorption Rate") 
+            ) %>%
+            formatStyle(
+              columns = 'Result',
+              valueColumns = 'res_col',
+              target = c("cell"),
+              backgroundColor = styleInterval(
+                c(50, 75),  
+                c('red', 'yellow', 'green')  
+              ),
+              rows = which(fin_summary_rssh$Indicator == "Absorption Rate")
+            ) %>%
+            formatStyle(
+              c('Indicator', 'Result'),   
+              fontWeight = styleEqual("Absorption Rate", "bold") 
+            )
+        } else {
+          datatable(
+            data.frame(message = "No RSSH finance data available."),
+            options = list(
+              dom = 't',        
+              paging = FALSE,   
+              searching = FALSE
+            ),
+            colnames = NULL,
+            rownames = FALSE    
+          )
+        }
+      })
+      
+      # Render RSSH Comments
+      output$finance_comments_rssh <- renderText({
+        if (length(finance_comments_rssh) > 0) {
+          finance_comments_rssh
+        } else {
+          "No comments available."
+        }
+      })
+      
+      ## Cofinance data
       cofin_data <- grant_data %>%
         filter(class %in% c("Co-financing")) %>%
         select(period, Indicator , value)
-      
       
       cofin_comments <- cofin_data %>%
         filter(Indicator == "Comments") %>%
@@ -337,7 +508,6 @@ server <- function(input, output, session) {
           mutate(res_col = case_when(Indicator == "Absorption Rate" ~ as.numeric(Result), 
                                      TRUE ~ NA_real_))
       }
-      
       
       rating_data <- grant_data %>%
         filter(class %in% c("Rating"))
@@ -377,7 +547,6 @@ server <- function(input, output, session) {
         ) 
       }
       
-      
       prog_rate <- rating %>% filter(Category == "Programmatic") %>% pull(Rating) %>%
         substr(1,1)
       fin_rate <- rating %>% filter(Category == "Financial") %>% pull(Rating) %>%
@@ -390,7 +559,7 @@ server <- function(input, output, session) {
       
       rating_all <- bind_rows(rating)
       
-      # +*+*+*+*+*+*+*+*+*+*+*+*+*+*+*++*+*+*+**++
+      # Products data
       products_data <- grant_data %>%
         filter(class %in% c("Products")) %>%
         select(period, Indicator , value) %>%
@@ -427,7 +596,6 @@ server <- function(input, output, session) {
                  ~ prettyNum(as.numeric(.), big.mark = ",", scientific = F))
         ) %>%
         select(-c(`SOR Numerator`, `SOR Denominator`))
-      
       
       incProgress(1)
       
@@ -516,7 +684,6 @@ server <- function(input, output, session) {
             )
         })
         
-        
         output$finance_comments <- renderText({
           if (length(finance_comments) > 0) {
             finance_comments
@@ -535,7 +702,6 @@ server <- function(input, output, session) {
               <span style='color: yellow;'>Yellow: 50% to 75%</span>, 
               <span style='color: green;'>Green: > 75%</span>")
       })
-      
       
       output$cofin_table <- if (sum(cofin_summary$Result, na.rm = T) > 0) { 
         renderDT({
@@ -596,7 +762,6 @@ server <- function(input, output, session) {
         })
       }
       
-      
       output$cofin_comments <- if (length(cofin_comments) > 0) {
         renderText({
           cofin_comments
@@ -608,10 +773,6 @@ server <- function(input, output, session) {
       output$cofin_legend <- renderText({
         "Legend: Red: < 50%, Yellow: 50 - 75 %, Green: > 75%"
       })
-      
-      
-      
-      
       
       output$grant_info_cards <- renderUI({
         grant_info <- grant_info %>%
@@ -708,7 +869,6 @@ server <- function(input, output, session) {
         )
       })
       
-      
       # Render products table
       if (!is.null(products_data)) {
         output$stock_table <- renderDT({
@@ -735,8 +895,8 @@ server <- function(input, output, session) {
             formatStyle(
               'MoS',
               backgroundColor = styleInterval(
-                c(1, 4, 10),  
-                c('red','green', 'yellow', 'red')  
+                c(3, 6, 10),  
+                c('red','yellow', 'green', 'red')  
               ),
               color = styleInterval(
                 c(1, 4, 10),  
@@ -764,9 +924,6 @@ server <- function(input, output, session) {
           datatable(data.frame(message = "No data available or request failed."))
         })
       }
-      
-      
-      
     })
   })
   

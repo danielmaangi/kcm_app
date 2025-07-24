@@ -9,6 +9,7 @@ grants <- c("HIV, KRCS" = "WFU6M2XN4W4",
 programme_indicators <- c("Coverage" = "Coverage", 
                           "Outcome" = "Outcome", 
                           "Impact" = "Impact",
+                          "RSSH" = "RSSH",
                           "PSEAH" = "PSEAH")
 
 

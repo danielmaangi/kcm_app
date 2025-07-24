@@ -66,15 +66,54 @@ des <- fread("metadata/dataElements.txt")
 
 
 test_data <- pull_program_data(start_date = "2024-01-01", end_date = "2024-12-31",
-                               grant = "WFU6M2XN4W4",
+                               grant = "l5VURDJNlpx",
                                orgunit = orgunit, 
                                base_url = base_url,
                                username = username, password = password) %>%
-  as.data.frame() |>
+  as.data.frame() %>%
+  mutate(
+    dataElement = if (!"dataElement" %in% names(.)) NA_character_ else dataElement,
+    period = if (!"period" %in% names(.)) NA_character_ else period,
+    value = if (!"value" %in% names(.)) NA_character_ else value
+  ) %>%
   left_join(des, by = c("dataElement" = "id")) %>%
-  left_join(all_periods, by = c("period" = "quarter"))
+  left_join(all_periods, by = c("period" = "quarter")) %>%
+  filter(grant_periods == "P2") 
 
+# RSSH Finance Data Processing
+fin_data_rssh <- test_data %>%
+  filter(class %in% c("Finance")) %>%
+  filter(grepl("RSSH", name)) %>%
+  select(period, Indicator, value)
 
+finance_comments_rssh <- fin_data_rssh %>%
+  filter(Indicator == "Comments") %>%
+  pull(value)
+
+fin_summary_rssh <- fin_data_rssh %>%
+  filter(Indicator != "Comments") %>%
+  select(-period) %>%
+  mutate(value = as.numeric(value)) %>%
+  pivot_wider(names_from = Indicator, values_from = value) %>%
+  mutate(
+    `Cumulative Budget` = if (!"Cumulative Budget" %in% names(.)) NA_real_ else `Cumulative Budget`,
+    `Cumulative Funds Expensed by PR` = if (!"Cumulative Funds Expensed by PR" %in% names(.)) NA_real_ else `Cumulative Funds Expensed by PR`,
+    Commitments = if (!"Commitments" %in% names(.)) NA_real_ else Commitments,
+    Obligations = if (!"Obligations" %in% names(.)) NA_real_ else Obligations
+  ) %>%
+  transmute(
+    `Cumulative Budget` = sum(`Cumulative Budget`, na.rm = TRUE),
+    `Cumulative Expenditure` = sum(`Cumulative Funds Expensed by PR`, na.rm = TRUE),
+    Commitments = sum(Commitments, na.rm = TRUE),
+    Obligations = sum(Obligations, na.rm = TRUE),
+    Variance = sum(`Cumulative Budget`, na.rm = TRUE) - sum(`Cumulative Funds Expensed by PR`, na.rm = TRUE),
+    `Absorption Rate` = round(`Cumulative Funds Expensed by PR` / `Cumulative Budget` * 100, 1)
+  ) %>%
+  pivot_longer(everything(),
+               names_to = "Indicator",
+               values_to = "Result") %>%
+  mutate(res_col = case_when(Indicator == "Absorption Rate" ~ as.numeric(Result), 
+                             TRUE ~ NA_real_))
 
 
 products_data <- test_data %>%
