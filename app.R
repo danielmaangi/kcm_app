@@ -205,6 +205,33 @@ ui <- bslib::page_sidebar(
                      card(DTOutput("stock_table"))
                    )
                  )
+        ),
+        
+        tabPanel("Grant Comparison", icon = icon("chart-bar", style = "color: #ff5733;"),
+                 tags$div(style = "margin-top: 20px;"),
+                 fluidRow(
+                   column(12,
+                          card(
+                            card_header("Financial Performance Comparison - All Grants", class = "bold-header"),
+                            DTOutput("grants_comparison_table")
+                          )
+                   )
+                 ),
+                 tags$div(style = "margin-top: 20px;"),
+                 fluidRow(
+                   column(6,
+                          card(
+                            card_header("Grant Overview Summary", class = "bold-header"),
+                            DTOutput("grants_overview_table")
+                          )
+                   ),
+                   column(6,
+                          card(
+                            card_header("Performance Ratings", class = "bold-header"),
+                            DTOutput("grants_ratings_table")
+                          )
+                   )
+                 )
         )
       )
   ),
@@ -940,6 +967,268 @@ server <- function(input, output, session) {
   
   observeEvent(input$refresh, {
     refresh_trigger(!refresh_trigger())
+  })
+  
+  # Grant Comparison functionality
+  pull_all_grants_data <- reactive({
+    req(input$start_date, input$end_date, input$select_period)
+    
+    all_grants_data <- map_dfr(grants, function(grant_id) {
+      api_url <- paste0(
+        base_url, "api/dataValueSets?dataSet=", grant_id,
+        "&&startDate=", input$start_date, 
+        "&endDate=", input$end_date, 
+        "&orgUnit=", orgunit, 
+        "&children=true"
+      )
+      
+      response <- tryCatch({
+        GET(
+          url = api_url,
+          authenticate(username, password),
+          accept_json()
+        )
+      }, error = function(e) {
+        return(NULL)
+      })
+      
+      if (!is.null(response) && status_code(response) == 200 && http_type(response) == "application/json") {
+        data <- fromJSON(content(response, as = "text"), flatten = TRUE)
+        if (!is.null(data$dataValues)) {
+          data$dataValues %>%
+            mutate(grant_id = grant_id)
+        } else {
+          NULL
+        }
+      } else {
+        NULL
+      }
+    })
+    
+    if (!is.null(all_grants_data) && nrow(all_grants_data) > 0) {
+      all_grants_data %>%
+        as.data.frame() %>%
+        mutate(
+          dataElement = if (!"dataElement" %in% names(.)) NA_character_ else dataElement,
+          period = if (!"period" %in% names(.)) NA_character_ else period,
+          value = if (!"value" %in% names(.)) NA_character_ else value
+        ) %>%
+        left_join(des, by = c("dataElement" = "id")) %>%
+        left_join(all_periods, by = c("period" = "quarter")) %>%
+        filter(grant_periods == input$select_period)
+    } else {
+      NULL
+    }
+  })
+  
+  # Financial Performance Comparison Table
+  output$grants_comparison_table <- renderDT({
+    all_grants_data <- pull_all_grants_data()
+    
+    if (is.null(all_grants_data)) {
+      return(datatable(data.frame(message = "No data available for comparison.")))
+    }
+    
+    # Process financial data for all grants
+    financial_comparison <- all_grants_data %>%
+      filter(class %in% c("Finance")) %>%
+      filter(!grepl("RSSH", name)) %>%
+      select(grant_id, Indicator, value) %>%
+      filter(Indicator != "Comments") %>%
+      mutate(value = as.numeric(value)) %>%
+      group_by(grant_id) %>%
+      summarise(
+        `Cumulative Budget` = sum(value[Indicator == "Cumulative Budget"], na.rm = TRUE),
+        `Cumulative Expenditure` = sum(value[Indicator == "Cumulative Funds Expensed by PR"], na.rm = TRUE),
+        Commitments = sum(value[Indicator == "Commitments"], na.rm = TRUE),
+        Obligations = sum(value[Indicator == "Obligations"], na.rm = TRUE),
+        .groups = 'drop'
+      ) %>%
+      mutate(
+        Variance = `Cumulative Budget` - `Cumulative Expenditure`,
+        `Absorption Rate` = round(`Cumulative Expenditure` / `Cumulative Budget` * 100, 1),
+        `Total Absorption Rate` = round((`Cumulative Expenditure` + Commitments + Obligations) / `Cumulative Budget` * 100, 1)
+      ) %>%
+      # Add grant names
+      mutate(
+        Grant = case_when(
+          grant_id == "WFU6M2XN4W4" ~ "HIV, KRCS",
+          grant_id == "XEUXTIGkU8H" ~ "HIV, TNT",
+          grant_id == "SbX36Gmomkz" ~ "Malaria, AMREF",
+          grant_id == "l5VURDJNlpx" ~ "Malaria, TNT",
+          grant_id == "SgPSOoSZ8Iz" ~ "TB, AMREF",
+          grant_id == "Vg7RJh2mM35" ~ "TB, TNT",
+          TRUE ~ grant_id
+        )
+      ) %>%
+      select(Grant, `Cumulative Budget`, `Cumulative Expenditure`, Commitments, Obligations, Variance, `Absorption Rate`, `Total Absorption Rate`) %>%
+      filter(`Cumulative Budget` > 0)  # Only show grants with budget data
+    
+    if (nrow(financial_comparison) == 0) {
+      return(datatable(data.frame(message = "No financial data available for comparison.")))
+    }
+    
+    datatable(financial_comparison,
+              options = list(
+                pageLength = nrow(financial_comparison),
+                paging = FALSE,
+                searching = FALSE,
+                info = FALSE,
+                dom = 't',
+                autoWidth = TRUE,
+                scrollX = TRUE
+              ),
+              rownames = FALSE,
+              caption = "Financial Performance Comparison - All Grants (USD)"
+    ) %>%
+      formatCurrency(
+        columns = c('Cumulative Budget', 'Cumulative Expenditure', 'Commitments', 'Obligations', 'Variance'),
+        currency = "USD ",
+        interval = 3,
+        mark = ",",
+        digits = 0,
+        dec.mark = ".",
+        before = TRUE
+      ) %>%
+      formatStyle(
+        columns = c('Absorption Rate', 'Total Absorption Rate'),
+        backgroundColor = styleInterval(
+          c(50, 75),
+          c('red', 'yellow', 'green')
+        ),
+        color = styleInterval(
+          c(50, 75),
+          c('white', 'black', 'white')
+        )
+      ) %>%
+      formatStyle(
+        c('Absorption Rate', 'Total Absorption Rate'),
+        fontWeight = 'bold'
+      )
+  })
+  
+  # Grant Overview Summary Table
+  output$grants_overview_table <- renderDT({
+    # Use grant_info data for overview
+    overview_data <- grant_info %>%
+      select(grant_yoy, signed_amount, committed_amount, disbursed_amount) %>%
+      mutate(
+        `Commitment Rate` = round((committed_amount / signed_amount) * 100, 1),
+        `Disbursement Rate` = round((disbursed_amount / signed_amount) * 100, 1)
+      ) %>%
+      rename(
+        Grant = grant_yoy,
+        `Signed Amount` = signed_amount,
+        `Committed Amount` = committed_amount,
+        `Disbursed Amount` = disbursed_amount
+      )
+    
+    datatable(overview_data,
+              options = list(
+                pageLength = nrow(overview_data),
+                paging = FALSE,
+                searching = FALSE,
+                info = FALSE,
+                dom = 't',
+                autoWidth = TRUE,
+                scrollX = TRUE
+              ),
+              rownames = FALSE,
+              caption = "Grant Overview Summary (USD)"
+    ) %>%
+      formatCurrency(
+        columns = c('Signed Amount', 'Committed Amount', 'Disbursed Amount'),
+        currency = "USD ",
+        interval = 3,
+        mark = ",",
+        digits = 0,
+        dec.mark = ".",
+        before = TRUE
+      ) %>%
+      formatStyle(
+        columns = c('Commitment Rate', 'Disbursement Rate'),
+        backgroundColor = styleInterval(
+          c(50, 75),
+          c('red', 'yellow', 'green')
+        ),
+        color = styleInterval(
+          c(50, 75),
+          c('white', 'black', 'white')
+        )
+      )
+  })
+  
+  # Performance Ratings Table
+  output$grants_ratings_table <- renderDT({
+    all_grants_data <- pull_all_grants_data()
+    
+    if (is.null(all_grants_data)) {
+      return(datatable(data.frame(message = "No rating data available.")))
+    }
+    
+    # Process rating data for all grants
+    ratings_comparison <- all_grants_data %>%
+      filter(class %in% c("Rating")) %>%
+      select(grant_id, Indicator, value) %>%
+      mutate(
+        Category = case_when(
+          str_detect(Indicator, "Financial") ~ "Financial",
+          str_detect(Indicator, "Programmatic") ~ "Programmatic",
+          TRUE ~ NA_character_
+        ),
+        type = case_when(
+          str_detect(Indicator, "Financial Rating") ~ "Rating",
+          str_detect(Indicator, "Programmatic Rating") ~ "Rating",
+          TRUE ~ NA_character_
+        )
+      ) %>%
+      filter(type == "Rating") %>%
+      select(grant_id, Category, value) %>%
+      mutate(Rating = substr(value, 1, 1)) %>%
+      pivot_wider(names_from = Category, values_from = Rating, values_fill = "N/A") %>%
+      mutate(
+        Grant = case_when(
+          grant_id == "WFU6M2XN4W4" ~ "HIV, KRCS",
+          grant_id == "XEUXTIGkU8H" ~ "HIV, TNT",
+          grant_id == "SbX36Gmomkz" ~ "Malaria, AMREF",
+          grant_id == "l5VURDJNlpx" ~ "Malaria, TNT",
+          grant_id == "SgPSOoSZ8Iz" ~ "TB, AMREF",
+          grant_id == "Vg7RJh2mM35" ~ "TB, TNT",
+          TRUE ~ grant_id
+        ),
+        `Overall Rating` = paste0(Programmatic, "-", Financial)
+      ) %>%
+      select(Grant, Programmatic, Financial, `Overall Rating`)
+    
+    if (nrow(ratings_comparison) == 0) {
+      return(datatable(data.frame(message = "No rating data available for comparison.")))
+    }
+    
+    datatable(ratings_comparison,
+              options = list(
+                pageLength = nrow(ratings_comparison),
+                paging = FALSE,
+                searching = FALSE,
+                info = FALSE,
+                dom = 't',
+                autoWidth = TRUE
+              ),
+              rownames = FALSE,
+              caption = "Performance Ratings Comparison"
+    ) %>%
+      formatStyle(
+        columns = c('Programmatic', 'Financial'),
+        backgroundColor = styleEqual(
+          c("A", "B", "C", "D", "E", "1", "2", "3", "4", "5"),
+          c("darkgreen", "lightgreen", "yellow", "orange", "red",
+            "darkgreen", "lightgreen", "yellow", "orange", "red")
+        ),
+        color = styleEqual(
+          c("A", "B", "C", "D", "E", "1", "2", "3", "4", "5"),
+          c("white", "black", "black", "black", "white",
+            "white", "black", "black", "black", "white")
+        )
+      )
   })
 }
 
