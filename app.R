@@ -1203,9 +1203,9 @@ server <- function(input, output, session) {
           TRUE ~ NA_character_
         )
       ) %>%
-      filter(type == "Rating") %>%
+      filter(type == "Rating", !is.na(Category)) %>%
       select(grant_id, Category, value) %>%
-      pivot_wider(names_from = Category, values_from = value, values_fill = "N/A") %>%
+      pivot_wider(names_from = Category, values_from = value) %>%
       mutate(
         Grant = case_when(
           grant_id == "WFU6M2XN4W4" ~ "HIV, KRCS",
@@ -1216,6 +1216,9 @@ server <- function(input, output, session) {
           grant_id == "Vg7RJh2mM35" ~ "TB, TNT",
           TRUE ~ grant_id
         ),
+        # Handle missing columns
+        Programmatic = if (!"Programmatic" %in% names(.)) "N/A" else Programmatic,
+        Financial = if (!"Financial" %in% names(.)) "N/A" else Financial,
         # Extract short ratings for overall rating
         Prog_Short = substr(Programmatic, 1, 1),
         Fin_Short = substr(Financial, 1, 1),
