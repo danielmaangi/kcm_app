@@ -105,6 +105,27 @@ ui <- bslib::page_sidebar(
       margin: 10px 0;
       border-radius: 5px;
     }
+    
+    /* Grant Comparison Tables Styling */
+    .grant-comparison-table {
+      font-size: 11px !important;
+    }
+    
+    .grant-comparison-table .dataTables_wrapper {
+      font-size: 11px !important;
+    }
+    
+    .grant-comparison-table table {
+      font-size: 11px !important;
+      width: 100% !important;
+    }
+    
+    .grant-comparison-table th,
+    .grant-comparison-table td {
+      font-size: 11px !important;
+      padding: 4px 6px !important;
+      white-space: nowrap;
+    }
   ")),
   
   sidebar = sidebar(
@@ -213,7 +234,7 @@ ui <- bslib::page_sidebar(
                    column(12,
                           card(
                             card_header("Financial Performance Comparison - All Grants", class = "bold-header"),
-                            DTOutput("grants_comparison_table")
+                            div(class = "grant-comparison-table", DTOutput("grants_comparison_table"))
                           )
                    )
                  ),
@@ -222,13 +243,13 @@ ui <- bslib::page_sidebar(
                    column(6,
                           card(
                             card_header("Grant Overview Summary", class = "bold-header"),
-                            DTOutput("grants_overview_table")
+                            div(class = "grant-comparison-table", DTOutput("grants_overview_table"))
                           )
                    ),
                    column(6,
                           card(
                             card_header("Performance Ratings", class = "bold-header"),
-                            DTOutput("grants_ratings_table")
+                            div(class = "grant-comparison-table", DTOutput("grants_ratings_table"))
                           )
                    )
                  )
@@ -1184,8 +1205,7 @@ server <- function(input, output, session) {
       ) %>%
       filter(type == "Rating") %>%
       select(grant_id, Category, value) %>%
-      mutate(Rating = substr(value, 1, 1)) %>%
-      pivot_wider(names_from = Category, values_from = Rating, values_fill = "N/A") %>%
+      pivot_wider(names_from = Category, values_from = value, values_fill = "N/A") %>%
       mutate(
         Grant = case_when(
           grant_id == "WFU6M2XN4W4" ~ "HIV, KRCS",
@@ -1196,7 +1216,10 @@ server <- function(input, output, session) {
           grant_id == "Vg7RJh2mM35" ~ "TB, TNT",
           TRUE ~ grant_id
         ),
-        `Overall Rating` = paste0(Programmatic, "-", Financial)
+        # Extract short ratings for overall rating
+        Prog_Short = substr(Programmatic, 1, 1),
+        Fin_Short = substr(Financial, 1, 1),
+        `Overall Rating` = paste0(Prog_Short, "-", Fin_Short)
       ) %>%
       select(Grant, Programmatic, Financial, `Overall Rating`)
     
