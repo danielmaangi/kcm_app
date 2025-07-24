@@ -357,13 +357,16 @@ server <- function(input, output, session) {
           Commitments = sum(Commitments, na.rm = TRUE),
           Obligations = sum(Obligations, na.rm = TRUE),
           Variance = sum(`Cumulative Budget`, na.rm = TRUE) - sum(`Cumulative Funds Expensed by PR`, na.rm = TRUE),
-          `Absorption Rate` = round(`Cumulative Funds Expensed by PR` / `Cumulative Budget` * 100, 1)
+          `Absorption Rate` = round(`Cumulative Funds Expensed by PR` / `Cumulative Budget` * 100, 1),
+          `Total Absorption Rate` = round((`Cumulative Funds Expensed by PR` + Commitments + Obligations) / `Cumulative Budget` * 100, 1)
         )%>%
         pivot_longer(everything(),
                      names_to = "Indicator",
                      values_to = "Result") %>%
-        mutate(res_col = case_when(Indicator == "Absorption Rate" ~ as.numeric(Result), 
-                                   TRUE ~ NA_real_))
+        mutate(res_col = case_when(
+          Indicator %in% c("Absorption Rate", "Total Absorption Rate") ~ as.numeric(Result), 
+          TRUE ~ NA_real_
+        ))
       
       # RSSH Finance Data Processing
       fin_data_rssh <- grant_data %>%
@@ -392,13 +395,16 @@ server <- function(input, output, session) {
           Commitments = sum(Commitments, na.rm = TRUE),
           Obligations = sum(Obligations, na.rm = TRUE),
           Variance = sum(`Cumulative Budget`, na.rm = TRUE) - sum(`Cumulative Funds Expensed by PR`, na.rm = TRUE),
-          `Absorption Rate` = round(`Cumulative Funds Expensed by PR` / `Cumulative Budget` * 100, 1)
+          `Absorption Rate` = round(`Cumulative Funds Expensed by PR` / `Cumulative Budget` * 100, 1),
+          `Total Absorption Rate` = round((`Cumulative Funds Expensed by PR` + Commitments + Obligations) / `Cumulative Budget` * 100, 1)
         ) %>%
         pivot_longer(everything(),
                      names_to = "Indicator",
                      values_to = "Result") %>%
-        mutate(res_col = case_when(Indicator == "Absorption Rate" ~ as.numeric(Result), 
-                                   TRUE ~ NA_real_))
+        mutate(res_col = case_when(
+          Indicator %in% c("Absorption Rate", "Total Absorption Rate") ~ as.numeric(Result), 
+          TRUE ~ NA_real_
+        ))
       
       # Render RSSH Finance Table
       output$finance_table_rssh <- renderDT({
@@ -428,7 +434,7 @@ server <- function(input, output, session) {
               digits = 2,             
               dec.mark = ".",         
               before = TRUE,          
-              rows = which(fin_summary_rssh$Indicator != "Absorption Rate") 
+              rows = which(!fin_summary_rssh$Indicator %in% c("Absorption Rate", "Total Absorption Rate")) 
             ) %>%
             formatStyle(
               columns = 'Result',
@@ -442,7 +448,7 @@ server <- function(input, output, session) {
             ) %>%
             formatStyle(
               c('Indicator', 'Result'),   
-              fontWeight = styleEqual("Absorption Rate", "bold") 
+              fontWeight = styleEqual(c("Absorption Rate", "Total Absorption Rate"), c("bold", "bold"))
             )
         } else {
           datatable(
@@ -478,7 +484,7 @@ server <- function(input, output, session) {
       
       cofin_summary <- if(!input$grant %in% c("XEUXTIGkU8H","l5VURDJNlpx","Vg7RJh2mM35")){
         tibble(
-          Indicator = c("Cumulative Budget","Cumulative Expenditure" ,"Commitments" ,"Obligations" ,"Variance","Absorption Rate"),
+          Indicator = c("Total Budget Allocation", "Cumulative Budget","Cumulative Expenditure" ,"Commitments" ,"Obligations" ,"Variance","Absorption Rate", "Total Absorption Rate"),
           Result = NA_real_,
           res_col = NA_real_
         )
@@ -489,24 +495,29 @@ server <- function(input, output, session) {
           pivot_wider(names_from = Indicator,
                       values_from = value) %>%
           mutate(
+            `Total Budget Allocation` = if (!"Total Budget Allocation" %in% names(.)) NA_real_ else `Total Budget Allocation`,
             `Cumulative budget` = if (!"Cumulative budget" %in% names(.)) NA_real_ else `Cumulative budget`,
             `Cumulative expenditure` = if (!"Cumulative expenditure" %in% names(.)) NA_real_ else `Cumulative expenditure`,
             Commitments = if (!"Commitments" %in% names(.)) NA_real_ else Commitments,
             Obligations = if (!"Obligations" %in% names(.)) NA_real_ else Obligations
           ) %>%
           transmute(
+            `Total Budget Allocation` = sum(`Total Budget Allocation`,na.rm = T),
             `Cumulative Budget` = sum(`Cumulative budget`,na.rm = T),
             `Cumulative Expenditure` = sum(`Cumulative expenditure`, na.rm = T),
             Commitments = sum(Commitments, na.rm = T),
             Obligations = sum(Obligations, na.rm = T),
             Variance = sum(`Cumulative budget`,na.rm = T) - sum(`Cumulative expenditure`, na.rm = T),
-            `Absorption Rate` = round(`Cumulative Expenditure` / `Cumulative Budget` * 100,1)
+            `Absorption Rate` = round(`Cumulative Expenditure` / `Cumulative Budget` * 100,1),
+            `Total Absorption Rate` = round((`Cumulative Expenditure` + Commitments + Obligations) / `Cumulative Budget` * 100, 1)
           ) %>%
           pivot_longer(everything(),
                        names_to = "Indicator",
                        values_to = "Result") %>%
-          mutate(res_col = case_when(Indicator == "Absorption Rate" ~ as.numeric(Result), 
-                                     TRUE ~ NA_real_))
+          mutate(res_col = case_when(
+            Indicator %in% c("Absorption Rate", "Total Absorption Rate") ~ as.numeric(Result), 
+            TRUE ~ NA_real_
+          ))
       }
       
       rating_data <- grant_data %>%
@@ -666,7 +677,7 @@ server <- function(input, output, session) {
               digits = 2,             
               dec.mark = ".",         
               before = TRUE,          
-              rows = which(fin_summary$Indicator != "Absorption Rate") 
+              rows = which(!fin_summary$Indicator %in% c("Absorption Rate", "Total Absorption Rate")) 
             ) %>%
             formatStyle(
               columns = 'Result',
@@ -680,7 +691,7 @@ server <- function(input, output, session) {
             ) %>%
             formatStyle(
               c('Indicator', 'Result'),   
-              fontWeight = styleEqual("Absorption Rate", "bold") 
+              fontWeight = styleEqual(c("Absorption Rate", "Total Absorption Rate"), c("bold", "bold"))
             )
         })
         
@@ -730,7 +741,7 @@ server <- function(input, output, session) {
               digits = 2,             
               dec.mark = ".",         
               before = TRUE,          
-              rows = which(cofin_summary$Indicator != "Absorption Rate") 
+              rows = which(!cofin_summary$Indicator %in% c("Absorption Rate", "Total Absorption Rate")) 
             ) %>%
             formatStyle(
               columns = 'Result',
@@ -744,7 +755,7 @@ server <- function(input, output, session) {
             ) %>%
             formatStyle(
               c('Indicator', 'Result'),   
-              fontWeight = styleEqual("Absorption Rate", "bold") 
+              fontWeight = styleEqual(c("Absorption Rate", "Total Absorption Rate"), c("bold", "bold"))
             )
         })
       } else {
