@@ -30,17 +30,21 @@ To increase utilisation of appropriate malaria interventions in Kenya to at leas
 To strengthen malaria surveillance and use of information to improve decision making for programme performance
 
 To provide leadership and management for optimal implementation of malaria interventions at all levels, for the achievement of all objectives by 2023",SbX36Gmomkz,KEN-M-AMREF
-AjSsO3NOutH,ACTIVE,KEN-M-TNTPO4 2023-2025,Malaria,TNT,2024-07-01,2027-06-30,57859369,10894233,796716,To reduce malaria incidence and deaths by at least 75 percent of the 2016 levels by 2023,"To protect 100 percent of people living in malaria risk areas through access to appropriate malaria preventive interventions by 2023
+AjSsO3NOutH,ACTIVE,KEN-M-TNTPO4 2023-2025,Malaria,TNT,2024-07-01,2027-06-30,57859369,10894233,796716,"To reduce malaria incidence by 80% and malaria deaths by 90% of 2023 levels by 2027/2028.
 
-To manage 100 percent of suspected malaria cases according to the Kenya malaria treatment guidelines by 2023
+To interrupt indigenous malaria transmission in selected counties by 2027/2028.","To ensure universal coverage of appropriate vector control interventions in all populations at risk of malaria
 
-To establish systems for malaria elimination in targeted counties by 2023
+To ensure optimum coverage of malaria chemoprevention interventions and vaccines in eligible populations
 
-To increase utilisation of appropriate malaria interventions in Kenya to at least 80 percent by 2023
+To ensure malaria cases are managed according to the national diagnosis, treatment and prevention guidelines
 
-To strengthen malaria surveillance and use of information to improve decision making for programme performance
+Optimal utilisation of malaria interventions.
 
-To provide leadership and management for optimal implementation of malaria interventions at all levels, for the achievement of all objectives by 2023",l5VURDJNlpx,KEN-M-TNT
+To strengthen malaria surveillance and generate evidence for decision-making
+
+To interrupt indigenous malaria transmission in four targeted counties by 2027/2028
+
+To strengthen leadership, management, governance, sustainable financing and commodity security for effective malaria programming at all levels",l5VURDJNlpx,KEN-M-TNT
 LyvC4ACDiNF,ACTIVE,KEN-T-AMREFPO6 2023-2025,TB,AMREF,2024-07-01,2027-06-30,46642666,23268957,2733775,"To ensure provision of quality care and prevention services for TB,and lung diseases for all people in Kenya
 
 To achieve equitable, affordable, accessible and high quality care for all.","Reduce TB incidence rate by 80% by 2030 compared to 2015 baseline

@@ -191,65 +191,74 @@ products_data <- test_data %>%
     product = str_trim(product)
   )
 
-products_data
 
 
 
 
- # Global fund API
-library(httr)
-library(jsonlite)
-api_url <- "https://data.api.theglobalfund.org/allocations/cycles"
-response <- GET(api_url)
-if (status_code(response) == 200) {
-  # Proceed to parse the content
-} else {
-  stop("Failed to retrieve data: ", status_code(response))
-}
-content <- content(response, as = "text", encoding = "UTF-8")
-data <- fromJSON(content)
-
-
-
-
-
-
-
-
-prog_data <- grant_data %>%
-  filter(class %in% c("Program", "PSEAH")) %>%
-  filter(!is.na(data)) %>%
-  filter(!is.na(type)) %>%
-  select(period, Indicator , fieldMask, type, data, value) %>%
-  pivot_wider(names_from = "data",
-              values_from = "value",
-              values_fill = NA) %>%
+sub_recipient_finance <- pull_program_data(start_date = "2024-01-01", end_date = "2025-12-31",
+                               grant = "O7LYGHTAVmT",
+                               orgunit = orgunit, 
+                               base_url = base_url,
+                               username = username, password = password) %>%
+  as.data.frame() %>%
   mutate(
-    Target = if (!"Target" %in% names(.)) NA_real_ else Target,
-    Result = if (!"Result" %in% names(.)) NA_real_ else Result,
-    Comment = if (!"Comment" %in% names(.)) NA_character_ else Comment
+    dataElement = if (!"dataElement" %in% names(.)) NA_character_ else dataElement,
+    period = if (!"period" %in% names(.)) NA_character_ else period,
+    value = if (!"value" %in% names(.)) NA_character_ else value
   ) %>%
-  select(period, Indicator , fieldMask, type, Target, Result, Comment) %>%
+  left_join(des, by = c("dataElement" = "id")) %>%
+  left_join(all_periods, by = c("period" = "quarter")) 
+
+
+processed_data <- pull_program_data(start_date = "2024-01-01", end_date = "2025-12-31",
+                                    grant = "O7LYGHTAVmT",
+                                    orgunit = orgunit, 
+                                    base_url = base_url,
+                                    username = username, password = password) %>%
+  as.data.frame() %>%
   mutate(
-    Percent = round(as.numeric(Result)*100/ as.numeric(Target),0),
-    .before = Comment
+    dataElement = if (!"dataElement" %in% names(.)) NA_character_ else dataElement,
+    period = if (!"period" %in% names(.)) NA_character_ else period,
+    value = if (!"value" %in% names(.)) NA_character_ else value,
+    attributeOptionCombo = if (!"attributeOptionCombo" %in% names(.)) NA_character_ else attributeOptionCombo
   ) %>%
-  mutate(Percent = ifelse(fieldMask == "Inverse", 
-                          round(10000 / Percent,0), 
-                          Percent)) %>%
-  select(-fieldMask) %>%
+  # Step 1: Left join with categoryoptioncombos
+  left_join(categoryoptioncombos, by = c("attributeOptionCombo" = "id")) %>%
+  # Step 2: Split name column - anything before comma is grant, after is sub-recipient
+  # filter(!is.na(name) & str_detect(name, ",")) %>%  # Only rows with comma (sub-recipients)
+  separate(name, into = c("grant", "subrecipient"), sep = ",", extra = "merge") %>%
   mutate(
-    across(c(Target, Result, Percent), 
-           ~ prettyNum(as.numeric(.), big.mark = ","))
+    grant = str_trim(grant),
+    subrecipient = str_trim(subrecipient)
   ) %>%
-  select(-type) %>%
-  filter(gf_period %in% input$gf_period) %>%
-  select(-period)
+  # Filter for current grant only
+  # Join with data elements info
+  left_join(des, by = c("dataElement" = "id")) %>%
+  # Join with periods info
+  left_join(all_periods, by = c("period" = "quarter")) %>%
+  select(period, Indicator, value, grant, subrecipient, attributeOptionCombo)
 
 
 
-
-
+subrec_summary <- processed_data %>%
+  filter(Indicator != "Comments") %>%
+  mutate(value = as.numeric(value)) %>%
+  mutate(Indicator = str_replace(Indicator, "^SR ", "")) %>%
+  group_by(subrecipient) %>%
+  summarise(
+    `Cumulative Budget` = sum(value[Indicator == "Cumulative budget"], na.rm = TRUE),
+    `Cumulative Expenditure` = sum(value[Indicator == "Cumulative funds expensed by SR"], na.rm = TRUE),
+    Commitments = sum(value[Indicator == "Commitments"], na.rm = TRUE),
+    Obligations = sum(value[Indicator == "Obligations"], na.rm = TRUE),
+    .groups = 'drop'
+  ) %>%
+  mutate(
+    Variance = `Cumulative Budget` - `Cumulative Expenditure`,
+    `Absorption Rate` = round(`Cumulative Expenditure` / `Cumulative Budget` * 100, 1),
+    `Total Absorption Rate` = round((`Cumulative Expenditure` + Commitments + Obligations) / `Cumulative Budget` * 100, 1)
+  ) %>%
+  rename(`Sub-Recipient` = subrecipient) %>%
+  filter(`Cumulative Budget` > 0)
 
 
 

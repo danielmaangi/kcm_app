@@ -17,6 +17,15 @@ glimpse(dataSets)
 
 fwrite(dataSets, "metadata/datasets.csv")
 
+##=======================================
+categoryoptioncombos <- datimutils::getMetadata("categoryOptionCombos", 
+                                    fields = "name, id") |>
+  dplyr::arrange(name) 
+
+glimpse(categoryoptioncombos)
+
+fwrite(categoryoptioncombos, "metadata/categoryoptioncombos.csv")
+
 #==============================================
 # HIV
 #-------------------------------
@@ -223,11 +232,46 @@ tb_tnt_gc7 <- datimutils::getMetadata("dataElements?filter=dataSetElements.dataS
                         TRUE ~ "No")
   )
 
+
+sr_finance <- datimutils::getMetadata("dataElements?filter=dataSetElements.dataSet.id:eq:O7LYGHTAVmT", 
+                                      fields = "name, id, code, shortName, description, formName,fieldMask,domainType, valueType, aggregationOperator, categoryCombo") %>%
+  dplyr::arrange(name) |>
+  mutate(aggregationoperator = NA_character_) |>
+  select(name, id, code, shortName, description, formName,domainType, valueType, aggregationoperator,fieldMask, categoryCombo.id)|>
+  mutate(
+    class = case_when(str_detect(name, "/FINANCE]") ~ "Finance",
+                      str_detect(name, "/RATING]") ~ "Rating",
+                      str_detect(name, "/COMMODITIES]") ~ "Products",
+                      str_detect(name, "/COVERAGE]") ~ "Program",
+                      str_detect(name, "/OUTCOME]") ~ "Program",
+                      str_detect(name, "/IMPACT]") ~ "Program",
+                      str_detect(name, "/PSEAH-") ~ "PSEAH",
+                      str_detect(name, "CO-FINANCE]") ~ "Co-financing",
+                      TRUE ~ NA_character_),
+    data = case_when(str_detect(name, "/TARGET/") ~ "Target",
+                     str_detect(name, "/TAR_PSEAH]") ~ "Target",
+                     str_detect(name, "/RESULT/") ~ "Result",
+                     str_detect(name, "/RES_PSEAH]") ~ "Result",
+                     str_detect(name, "/COMMENT/") ~ "Comment",
+                     str_detect(name, "/COMM_PSEAH]") ~ "Comment",
+                     TRUE ~ NA_character_),
+    type = case_when(str_detect(name, "/COVERAGE") ~ "Coverage",
+                     str_detect(name, "/OUTCOME") ~ "Outcome",
+                     str_detect(name, "/IMPACT") ~ "Impact",
+                     str_detect(name, "/PSEAH") ~ "PSEAH",
+                     TRUE ~ NA_character_
+    ),
+    Inverse = case_when(str_detect(code, "INVERSE") ~ "Yes",
+                        TRUE ~ "No")
+  )
+
 # Save all
 # ------------------------
 dataElements <- bind_rows(hiv_krcs_gc7, hiv_tnt_gc7, malaria_amref_gc7, malaria_tnt_gc7, 
                           tb_amref_gc7, 
-                          tb_tnt_gc7) %>%
+                          tb_tnt_gc7,
+                          sr_finance # different format
+                          ) %>%
   rename(Indicator = description) %>%
   mutate(
     Indicator = case_when(class %in% c("Finance", "Rating") ~ str_replace(Indicator, "PR ", ""),

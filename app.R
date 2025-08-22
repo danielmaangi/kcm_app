@@ -3,7 +3,23 @@ source("periods.R")
 source("grants.R")
 source("config/credentials.R")
 
+categoryoptioncombos <- fread("metadata/categoryoptioncombos.csv") 
+
 thematic_shiny()
+
+# Function to create grant mapping for dataset IDs
+get_grant_name <- function(grant_dataset_id) {
+  grant_mapping <- list(
+    "WFU6M2XN4W4" = "KEN-H-KRCS",
+    "XEUXTIGkU8H" = "KEN-H-TNT", 
+    "SbX36Gmomkz" = "KEN-M-AMREF",
+    "l5VURDJNlpx" = "KEN-M-TNT",
+    "SgPSOoSZ8Iz" = "KEN-T-AMREF", 
+    "Vg7RJh2mM35" = "KEN-T-TNT"
+  )
+  
+  return(grant_mapping[[grant_dataset_id]])
+}
 
 ui <- bslib::page_sidebar(
   theme = bs_theme(bootswatch = "cosmo", 
@@ -126,6 +142,27 @@ ui <- bslib::page_sidebar(
       padding: 8px 10px !important;
       white-space: nowrap;
     }
+    
+    /* Sub-Recipients Table Styling */
+    .subrec-table {
+      font-size: 12px !important;
+    }
+    
+    .subrec-table .dataTables_wrapper {
+      font-size: 12px !important;
+    }
+    
+    .subrec-table table {
+      font-size: 12px !important;
+      width: 100% !important;
+    }
+    
+    .subrec-table th,
+    .subrec-table td {
+      font-size: 12px !important;
+      padding: 8px 10px !important;
+      white-space: nowrap;
+    }
   ")),
   
   sidebar = sidebar(
@@ -201,6 +238,16 @@ ui <- bslib::page_sidebar(
                               )
                             )
                    ),
+                   tabPanel("Sub-Recipients", tags$div(style = "margin-top: 20px;"),
+                            fluidRow(
+                              column(12,
+                                     card(
+                                       card_header("Sub-Recipient Financial Performance", class = "bold-header"),
+                                       DTOutput("subrec_finance_table")
+                                     )
+                              )
+                            )
+                   ),
                    tabPanel("Co-financing", tags$div(style = "margin-top: 20px;"),
                             fluidRow(
                               column(7, 
@@ -250,8 +297,6 @@ ui <- bslib::page_sidebar(
 )
 
 server <- function(input, output, session) {
-  # [Existing server code remains unchanged]
-  # Including all reactive expressions, observers, and output renderings as provided originally.
   refresh_trigger <- reactiveVal(FALSE)
   
   output$prog_dynamic_tab <- renderUI({
@@ -316,6 +361,82 @@ server <- function(input, output, session) {
     }
   })
   
+  # Corrected reactive function for sub-recipient data
+  pull_subrec_data <- reactive({
+    req(input$start_date, input$end_date, input$grant)
+    refresh_trigger()
+    
+    # Get current grant name
+    current_grant_name <- get_grant_name(input$grant)
+    
+    if (is.null(current_grant_name)) {
+      return(NULL)
+    }
+    
+    # Use the special dataset ID for sub-recipient data
+    api_url <- paste0(
+      base_url, "api/dataValueSets?dataSet=O7LYGHTAVmT",
+      "&&startDate=", input$start_date, 
+      "&endDate=", input$end_date, 
+      "&orgUnit=", orgunit, 
+      "&children=true"
+    )
+    
+    cat("Sub-recipient API URL: ", api_url, "\n")
+    
+    response <- tryCatch({
+      GET(
+        url = api_url,
+        authenticate(username, password),
+        accept_json()
+      )
+    }, error = function(e) {
+      return(e)
+    })
+    
+    if (inherits(response, "error")) {
+      return(NULL)
+    }
+    
+    if (status_code(response) == 200 && http_type(response) == "application/json") {
+      data <- fromJSON(content(response, as = "text"), flatten = TRUE)
+      if (!is.null(data$dataValues)) {
+        # Process the data step by step as requested
+        processed_data <- data$dataValues %>%
+          as.data.frame() %>%
+          mutate(
+            dataElement = if (!"dataElement" %in% names(.)) NA_character_ else dataElement,
+            period = if (!"period" %in% names(.)) NA_character_ else period,
+            value = if (!"value" %in% names(.)) NA_character_ else value,
+            attributeOptionCombo = if (!"attributeOptionCombo" %in% names(.)) NA_character_ else attributeOptionCombo
+          ) %>%
+          # Step 1: Left join with categoryoptioncombos
+          left_join(categoryoptioncombos, by = c("attributeOptionCombo" = "id")) %>%
+          # Step 2: Split name column - anything before comma is grant, after is sub-recipient
+          # filter(!is.na(name) & str_detect(name, ",")) %>%  # Only rows with comma (sub-recipients)
+          separate(name, into = c("grant", "subrecipient"), sep = ",", extra = "merge") %>%
+          mutate(
+            grant = str_trim(grant),
+            subrecipient = str_trim(subrecipient)
+          ) %>%
+          # Filter for current grant only
+          filter(grant == current_grant_name) %>%
+          # Join with data elements info
+          left_join(des, by = c("dataElement" = "id")) %>%
+          # Join with periods info
+          left_join(all_periods, by = c("period" = "quarter")) %>%
+          filter(grant_periods == input$select_period) %>%
+          select(period, Indicator, value, grant, subrecipient, attributeOptionCombo)
+        
+        return(processed_data)
+      } else {
+        return(NULL)
+      }
+    } else {
+      return(NULL)
+    }
+  })
+  
   observe({
     withProgress(message = 'Loading data, please wait...', value = 0, {
       incProgress(0.5)
@@ -332,6 +453,97 @@ server <- function(input, output, session) {
         left_join(des, by = c("dataElement" = "id")) %>%
         left_join(all_periods, by = c("period" = "quarter")) %>%
         filter(grant_periods == input$select_period)
+      
+      # Process sub-recipient data with corrected logic
+      subrec_data <- pull_subrec_data()
+      
+      if (!is.null(subrec_data) && nrow(subrec_data) > 0) {
+        # Create sub-recipient summary table
+        subrec_summary <- subrec_data %>%
+          filter(Indicator != "Comments") %>%
+          mutate(value = as.numeric(value)) %>%mutate(Indicator = str_replace(Indicator, "^SR ", "")) %>%
+          group_by(subrecipient) %>%
+          summarise(
+            `Cumulative Budget` = sum(value[Indicator == "Cumulative budget"], na.rm = TRUE),
+            `Cumulative Expenditure` = sum(value[Indicator == "Cumulative funds expensed by SR"], na.rm = TRUE),
+            Commitments = sum(value[Indicator == "Commitments"], na.rm = TRUE),
+            Obligations = sum(value[Indicator == "Obligations"], na.rm = TRUE),
+            .groups = 'drop'
+          ) %>%
+          mutate(
+            Variance = `Cumulative Budget` - `Cumulative Expenditure`,
+            `Absorption Rate` = round(`Cumulative Expenditure` / `Cumulative Budget` * 100, 1),
+            `Total Absorption Rate` = round((`Cumulative Expenditure` + Commitments + Obligations) / `Cumulative Budget` * 100, 1)
+          ) %>%
+          rename(`Sub-Recipient` = subrecipient) %>%
+          filter(`Cumulative Budget` > 0)  # Only show sub-recipients with budget data
+        
+        output$subrec_finance_table <- renderDT({
+          if (nrow(subrec_summary) > 0) {
+            datatable(subrec_summary,
+                      options = list(
+                        pageLength = 10,
+                        paging = TRUE,
+                        searching = TRUE,
+                        info = TRUE,
+                        autoWidth = TRUE,
+                        scrollX = TRUE
+                      ),
+                      rownames = FALSE,
+                      caption = "Sub-Recipient Financial Performance (USD) - Legend: Red < 50%, Yellow 50-75%, Green > 75%",
+                      class = "subrec-table"  # Add this line
+            ) %>%
+              formatCurrency(
+                columns = c('Cumulative Budget', 'Cumulative Expenditure', 'Commitments', 'Obligations', 'Variance'),
+                currency = "USD ",
+                interval = 3,
+                mark = ",",
+                digits = 0,
+                dec.mark = ".",
+                before = TRUE
+              ) %>%
+              formatStyle(
+                columns = c('Absorption Rate', 'Total Absorption Rate'),
+                backgroundColor = styleInterval(
+                  c(50, 75),
+                  c('red', 'yellow', 'green')
+                ),
+                color = styleInterval(
+                  c(50, 75),
+                  c('white', 'black', 'white')
+                )
+              ) %>%
+              formatStyle(
+                c('Absorption Rate', 'Total Absorption Rate'),
+                fontWeight = 'bold'
+              )
+          } else {
+            datatable(
+              data.frame(message = "No sub-recipient financial data available for this grant."),
+              options = list(
+                dom = 't',
+                paging = FALSE,
+                searching = FALSE
+              ),
+              colnames = NULL,
+              rownames = FALSE
+            )
+          }
+        })
+      } else {
+        output$subrec_finance_table <- renderDT({
+          datatable(
+            data.frame(message = "No sub-recipient financial data available for this grant."),
+            options = list(
+              dom = 't',
+              paging = FALSE,
+              searching = FALSE
+            ),
+            colnames = NULL,
+            rownames = FALSE
+          )
+        })
+      }
       
       prog_data <- grant_data %>%
         filter(class %in% c("Program", "PSEAH")) %>%

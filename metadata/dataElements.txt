@@ -838,3 +838,12 @@ name,id,code,shortName,Indicator,formName,domainType,valueType,aggregationoperat
 [GC7/TNT-T/TOTAL_BUDGET/RSSH/FINANCE] PR Total Budget,qdgZQg4WNHn,GC7/TNT-T/TOTAL_BUDGET/RSSH/FINANCE,GC7/TNT-T/TOTAL_BUDGET/RSSH/FINANCE,Total Budget,NUMBER,AGGREGATE,NUMBER,,,bjDvmb4bfuf,Finance,,RSSH,No
 [GC7/TNT-T/TOTAL_SR_BUDGET/FINANCE] PR Total Sub Recipients Budget Amount,HOcqPH4f8TO,GC7/TNT-T/TOTAL_SR_BUDGET/FINANCE,GC7/TNT-T/TOTAL_SR_BUDGET/FINANCE,Total Sub Recipients Budget Amount,NUMBER,AGGREGATE,NUMBER,,,bjDvmb4bfuf,Finance,,,No
 [GC7/TNT-T/TOTAL_SR_BUDGET/RSSH/FINANCE] PR Total Sub Recipients Budget Amount,FZedWY3haac,GC7/TNT-T/TOTAL_SR_BUDGET/RSSH/FINANCE,GC7/TNT-T/TOTAL_SR_BUDGET/RSSH/FINANCE,Total Sub Recipients Budget Amount,NUMBER,AGGREGATE,NUMBER,,,bjDvmb4bfuf,Finance,,RSSH,No
+FIN: SR Commitments,fXaAQE6czud,SR_COMMIT,SR Commitments,SR Commitments,SR Commitments,AGGREGATE,NUMBER,,,bjDvmb4bfuf,,,,No
+FIN: SR Cumulative budget,TTtHXtzK3cj,SR_GRANT_BUDGET,FIN: SR Cumulative budget,SR Cumulative budget,SR Cumulative budget,AGGREGATE,NUMBER,,,bjDvmb4bfuf,,,,No
+FIN: SR Cumulative funds disbursed to SR by the PR,D0VwIokse5N,SR_DISRBURSE,SR Cumulative funds disbursed to SR,SR Cumulative funds disbursed to SR,SR Cumulative funds disbursed to SR,AGGREGATE,NUMBER,,,bjDvmb4bfuf,,,,No
+FIN: SR Cumulative funds expensed by SR,YMW1iITg7sf,SR_EXPENSE,Cumulative funds expensed by SR,SR Cumulative funds expensed by SR,SR Cumulative funds expensed by SR,AGGREGATE,NUMBER,,,bjDvmb4bfuf,,,,No
+FIN: SR Narrative - Quarterly,ichIpQ8gsLU,FIN_SR_NARRATIVE_QUARTERLY,FIN: SR Narrative - Quarterly,FIN: SR Narrative - Quarterly,FIN: SR Narrative - Quarterly,AGGREGATE,LONG_TEXT,,,bjDvmb4bfuf,,,,No
+FIN: SR Obligations,ip1LvYW2H81,SR_OBLIG,SR Obligations,SR Obligations,SR Obligations,AGGREGATE,NUMBER,,,bjDvmb4bfuf,,,,No
+FIN: SR Savings,Yu6Str2CTV9,SR_SAVING,SR Savings,SR Savings,SR Savings,AGGREGATE,NUMBER,,,bjDvmb4bfuf,,,,No
+FIN: SR Total Budget,z57NxRYdObM,SR _TOTAL_BUDGET,SR Total Budget,SR Total grant budgeted amount,SR Total grant budgeted amount,AGGREGATE,NUMBER,,No,bjDvmb4bfuf,,,,No
+FIN: SR postponed outflows,kCPQkJn0bT7,SR_POSTPONED_OUTFLOW,SR postponed outflows,SR postponed outflows,SR postponed outflows,AGGREGATE,NUMBER,,,bjDvmb4bfuf,,,,No
