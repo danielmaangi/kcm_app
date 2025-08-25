@@ -5,7 +5,7 @@ account: statbricks
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 12997583
-bundleId: 10806555
+bundleId: 10817710
 url: https://statbricks.shinyapps.io/kcm_app/
 version: 1
 asMultiple: FALSE
