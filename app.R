@@ -461,7 +461,7 @@ server <- function(input, output, session) {
         # Create sub-recipient summary table
         subrec_summary <- subrec_data %>%
           filter(Indicator != "Comments") %>%
-          mutate(value = as.numeric(value)) %>%mutate(Indicator = str_replace(Indicator, "^SR ", "")) %>%
+          mutate(value = as.numeric(value)) %>% mutate(Indicator = str_replace(Indicator, "^SR ", "")) %>%
           group_by(subrecipient) %>%
           summarise(
             `Cumulative Budget` = sum(value[Indicator == "Cumulative budget"], na.rm = TRUE),
