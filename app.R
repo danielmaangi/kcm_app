@@ -173,7 +173,7 @@ ui <- bslib::page_sidebar(
     
     selectInput("select_period", "Period",
                 choices = data_periods,
-                selected = "P4",
+                selected = "P5",
                 multiple = FALSE),
     
     selectInput("programme_indicator", "Indicator",
